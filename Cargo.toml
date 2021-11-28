@@ -1,18 +1,23 @@
 [package]
 name = "qoi-fast"
-version = "0.1.0"
+version = "0.0.1"
+description = "Fast encoder/decoder for QOI (Quite Okay Image) format"
 authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
 edition = "2021"
 readme = "README.md"
-repository = "https://github.com/aldanor/qoi-rust"
 license = "MIT"
-keywords = []
-categories = []
-description = "Pure Rust implementation of QOI (Quite Okay Image) format."
-documentation = "https://docs.rs/qoi-rust"
+repository = "https://github.com/aldanor/qoi-fast"
+homepage = "https://github.com/aldanor/qoi-fast"
+documentation = "https://docs.rs/qoi-fast"
+categories = ["multimedia::images", "multimedia::encoding"]
+keywords = ["qoi", "graphics", "image", "encoding"]
+exclude = [
+    "benches/*",
+    "assets/*",
+]
 
 [dev-dependencies]
-png = "0.17"
+png = "^0.17.2"
 
 [features]
 reference-encoder = []
