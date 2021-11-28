@@ -1,0 +1,32 @@
+[package]
+name = "qoi-fast"
+version = "0.1.0"
+authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
+edition = "2021"
+readme = "README.md"
+repository = "https://github.com/aldanor/qoi-rust"
+license = "MIT"
+keywords = []
+categories = []
+description = "Pure Rust implementation of QOI (Quite Okay Image) format."
+documentation = "https://docs.rs/qoi-rust"
+
+[dev-dependencies]
+png = "0.17"
+
+[features]
+reference-encoder = []
+default = []
+
+[target.'cfg(bench)'.dev-dependencies]
+# to activate, pass RUSTFLAGS="--cfg bench" until cargo does this automatically
+criterion = "^0.3.5"
+
+[lib]
+name = "qoi_fast"
+path = "src/lib.rs"
+bench = false
+
+[[bench]]
+name = "bench"
+harness = false
