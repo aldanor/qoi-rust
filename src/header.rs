@@ -14,8 +14,8 @@ impl Default for Header {
     fn default() -> Self {
         Self {
             magic: QOI_MAGIC,
-            width: 0,
-            height: 0,
+            width: 1,
+            height: 1,
             channels: 3,
             colorspace: ColorSpace::default(),
         }
