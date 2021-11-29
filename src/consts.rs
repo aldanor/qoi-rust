@@ -12,8 +12,11 @@ pub const QOI_DIFF_24: u8 = 0xe0; // (1110)0000
 pub const QOI_COLOR: u8 = 0xf0; // (1111)0000
 
 // tag masks
+#[allow(unused)]
 pub const QOI_MASK_2: u8 = 0xc0; // (11)000000
+#[allow(unused)]
 pub const QOI_MASK_3: u8 = 0xe0; // (111)00000
+#[allow(unused)]
 pub const QOI_MASK_4: u8 = 0xf0; // (1111)0000
 
 pub const QOI_HEADER_SIZE: usize = 14;
