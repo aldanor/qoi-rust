@@ -1,5 +1,6 @@
 use std::slice;
 
+use crate::colorspace::ColorSpace;
 use crate::consts::{
     QOI_COLOR, QOI_DIFF_16, QOI_DIFF_24, QOI_DIFF_8, QOI_HEADER_SIZE, QOI_INDEX, QOI_PADDING,
     QOI_RUN_16, QOI_RUN_8,
@@ -122,7 +123,7 @@ fn encode_diff_wrapping<const N: usize>(
 }
 
 pub(crate) fn qoi_encode_impl<const N: usize>(
-    data: &[u8], width: u32, height: u32,
+    data: &[u8], width: u32, height: u32, colorspace: ColorSpace,
 ) -> Result<Vec<u8>>
 where
     Pixel<N>: SupportedChannels,
@@ -150,7 +151,7 @@ where
     header.width = width;
     header.height = height;
     header.channels = N as u8;
-    // TODO: colorspace
+    header.colorspace = colorspace.into();
     buf.write(header.to_bytes());
 
     let mut index = [Pixel::new(); 64];
@@ -228,11 +229,13 @@ where
 
 pub fn qoi_encode_to_vec(
     data: impl AsRef<[u8]>, width: u32, height: u32, channels: u8,
+    colorspace: impl Into<ColorSpace>,
 ) -> Result<Vec<u8>> {
     let data = data.as_ref();
+    let colorspace = colorspace.into();
     match channels {
-        3 => qoi_encode_impl::<3>(data, width, height),
-        4 => qoi_encode_impl::<4>(data, width, height),
+        3 => qoi_encode_impl::<3>(data, width, height, colorspace.into()),
+        4 => qoi_encode_impl::<4>(data, width, height, colorspace.into()),
         _ => Err(Error::InvalidChannels { channels }),
     }
 }

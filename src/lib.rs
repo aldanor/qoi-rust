@@ -33,14 +33,14 @@ mod tests {
     #[test]
     fn kodim_01() {
         let (w, h, c, v) = read_png("assets/kodim01.png");
-        let q = qoi_encode_to_vec(&v, w, h, c).unwrap();
+        let q = qoi_encode_to_vec(&v, w, h, c, 0).unwrap();
         std::fs::write("kodim01.qoi", q.as_slice()).unwrap();
     }
 
     #[test]
     fn wikipedia() {
         let (w, h, c, v) = read_png("assets/en.wikipedia.org.png");
-        let q = qoi_encode_to_vec(&v, w, h, c).unwrap();
+        let q = qoi_encode_to_vec(&v, w, h, c, 0).unwrap();
         std::fs::write("wikipedia.qoi", q.as_slice()).unwrap();
     }
 
@@ -48,7 +48,7 @@ mod tests {
     fn roundtrip_3() {
         let three_raw = include_bytes!("../assets/three.raw").to_vec();
         let (w, h, c) = (572, 354, 3);
-        let three_qoi = qoi_encode_to_vec(&three_raw, w, h, c).unwrap();
+        let three_qoi = qoi_encode_to_vec(&three_raw, w, h, c, 0).unwrap();
         let (header, three_rtp) = qoi_decode_to_vec(&three_qoi, c).unwrap();
         assert_eq!(header.magic, QOI_MAGIC);
         assert_eq!(header.width, w);
