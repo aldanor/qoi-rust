@@ -6,6 +6,8 @@ mod error;
 mod header;
 mod pixel;
 
+pub mod canonical;
+
 pub use crate::colorspace::ColorSpace;
 pub use crate::decode::qoi_decode_to_vec;
 pub use crate::encode::qoi_encode_to_vec;

@@ -46,7 +46,7 @@ impl WriteBuf {
 }
 
 #[inline]
-fn encode_diff_reference<const N: usize>(
+fn encode_diff_canonical<const N: usize>(
     px: Pixel<N>, px_prev: Pixel<N>, buf: &mut WriteBuf,
 ) -> Option<(bool, bool, bool, bool)> {
     let vr = (px.r() as i16) - (px_prev.r() as i16);
@@ -122,7 +122,7 @@ fn encode_diff_wrapping<const N: usize>(
     }
 }
 
-pub(crate) fn qoi_encode_impl<const N: usize>(
+pub(crate) fn qoi_encode_impl<const N: usize, const CANONICAL: bool>(
     data: &[u8], width: u32, height: u32, colorspace: ColorSpace,
 ) -> Result<Vec<u8>>
 where
@@ -190,8 +190,8 @@ where
             } else {
                 *index_px = px;
 
-                let nonzero = if cfg!(feature = "reference-encoder") {
-                    encode_diff_reference::<N>(px, px_prev, &mut buf)
+                let nonzero = if CANONICAL {
+                    encode_diff_canonical::<N>(px, px_prev, &mut buf)
                 } else {
                     encode_diff_wrapping::<N>(px, px_prev, &mut buf)
                 };
@@ -227,15 +227,19 @@ where
     Ok(bytes)
 }
 
+pub(crate) fn qoi_encode_to_vec_impl<const CANONICAL: bool>(
+    data: &[u8], width: u32, height: u32, channels: u8, colorspace: ColorSpace,
+) -> Result<Vec<u8>> {
+    match channels {
+        3 => qoi_encode_impl::<3, CANONICAL>(data, width, height, colorspace),
+        4 => qoi_encode_impl::<4, CANONICAL>(data, width, height, colorspace),
+        _ => Err(Error::InvalidChannels { channels }),
+    }
+}
+
 pub fn qoi_encode_to_vec(
     data: impl AsRef<[u8]>, width: u32, height: u32, channels: u8,
     colorspace: impl Into<ColorSpace>,
 ) -> Result<Vec<u8>> {
-    let data = data.as_ref();
-    let colorspace = colorspace.into();
-    match channels {
-        3 => qoi_encode_impl::<3>(data, width, height, colorspace.into()),
-        4 => qoi_encode_impl::<4>(data, width, height, colorspace.into()),
-        _ => Err(Error::InvalidChannels { channels }),
-    }
+    qoi_encode_to_vec_impl::<false>(data.as_ref(), width, height, channels, colorspace.into())
 }

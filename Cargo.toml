@@ -19,10 +19,6 @@ exclude = [
 [dev-dependencies]
 png = "^0.17.2"
 
-[features]
-reference-encoder = []
-default = []
-
 [target.'cfg(bench)'.dev-dependencies]
 # to activate, pass RUSTFLAGS="--cfg bench" until cargo does this automatically
 criterion = "^0.3.5"
