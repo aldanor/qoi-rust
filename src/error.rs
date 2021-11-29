@@ -10,7 +10,7 @@ pub enum Error {
     EmptyImage { width: u32, height: u32 },
     BadEncodingDataSize { size: usize, expected: usize },
     BadDecodingDataSize { size: usize },
-    InvalidMagic { magic: [u8; 4] },
+    InvalidMagic { magic: u32 },
     // TODO: invalid colorspace
 }
 

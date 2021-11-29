@@ -22,4 +22,5 @@ pub const QOI_MASK_4: u8 = 0xf0; // (1111)0000
 pub const QOI_HEADER_SIZE: usize = 14;
 pub const QOI_PADDING: usize = 4;
 
-pub const QOI_MAGIC: [u8; 4] = [b'q', b'o', b'i', b'f'];
+pub const QOI_MAGIC: u32 =
+    (b'q' as u32) << 24 | (b'o' as u32) << 16 | (b'i' as u32) << 8 | (b'f' as u32);

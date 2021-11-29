@@ -3,7 +3,7 @@ use crate::consts::{QOI_HEADER_SIZE, QOI_MAGIC};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Header {
-    pub magic: [u8; 4],
+    pub magic: u32,
     pub width: u32,
     pub height: u32,
     pub channels: u8,
@@ -40,7 +40,7 @@ impl Header {
 
     pub(crate) fn to_bytes(&self) -> [u8; QOI_HEADER_SIZE] {
         let mut out = [0; QOI_HEADER_SIZE];
-        out[..4].copy_from_slice(&self.magic);
+        out[..4].copy_from_slice(&u32_to_be(self.magic));
         out[4..8].copy_from_slice(&u32_to_be(self.width));
         out[8..12].copy_from_slice(&u32_to_be(self.height));
         out[12] = self.channels;
@@ -50,7 +50,7 @@ impl Header {
 
     pub(crate) fn from_bytes(v: [u8; QOI_HEADER_SIZE]) -> Self {
         let mut out = Self::default();
-        out.magic.copy_from_slice(&v[..4]);
+        out.magic = u32_from_be(&v[..4]);
         out.width = u32_from_be(&v[4..8]);
         out.height = u32_from_be(&v[8..12]);
         out.channels = v[12];
