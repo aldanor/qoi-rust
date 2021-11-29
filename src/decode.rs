@@ -1,9 +1,6 @@
 use std::mem;
 
-use crate::consts::{
-    QOI_COLOR, QOI_DIFF_16, QOI_DIFF_24, QOI_DIFF_8, QOI_HEADER_SIZE, QOI_INDEX, QOI_MAGIC,
-    QOI_MASK_2, QOI_MASK_3, QOI_MASK_4, QOI_PADDING, QOI_RUN_16, QOI_RUN_8,
-};
+use crate::consts::{QOI_HEADER_SIZE, QOI_INDEX, QOI_MAGIC, QOI_PADDING};
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
