@@ -71,70 +71,79 @@ where
         // TODO: check for safety that ReadBuf is not over yet
         if run != 0 {
             run -= 1;
-        } else {
-            let b1 = buf.read();
-            match b1 & QOI_MASK_2 {
-                QOI_INDEX => {
-                    px = unsafe {
-                        // Safety: (b1 ^ QOI_INDEX) is guaranteed to be at most 6 bits
-                        *index.get_unchecked(usize::from(b1 ^ QOI_INDEX))
-                    };
-                }
-                QOI_DIFF_8 => {
-                    px.rgb_add(
-                        ((b1 >> 4) & 0x03).wrapping_sub(2),
-                        ((b1 >> 2) & 0x03).wrapping_sub(2),
-                        (b1 & 0x03).wrapping_sub(2),
-                    );
-                }
-                _ => match b1 & QOI_MASK_3 {
-                    QOI_RUN_8 => {
-                        run = u16::from(b1 & 0x1f);
-                    }
-                    QOI_RUN_16 => {
-                        run = 32 + ((u16::from(b1 & 0x1f) << 8) | u16::from(buf.read()));
-                    }
-                    QOI_DIFF_16 => {
-                        let b2 = buf.read();
-                        px.rgb_add(
-                            (b1 & 0x1f).wrapping_sub(16),
-                            (b2 >> 4).wrapping_sub(8),
-                            (b2 & 0x0f).wrapping_sub(8),
-                        );
-                    }
-                    _ => match b1 & QOI_MASK_4 {
-                        QOI_DIFF_24 => {
-                            let (b2, b3) = (buf.read(), buf.read());
-                            px.rgba_add(
-                                (((b1 & 0x0f) << 1) | (b2 >> 7)).wrapping_sub(16),
-                                ((b2 & 0x7c) >> 2).wrapping_sub(16),
-                                (((b2 & 0x03) << 3) | ((b3 & 0xe0) >> 5)).wrapping_sub(16),
-                                (b3 & 0x1f).wrapping_sub(16),
-                            );
-                        }
-                        QOI_COLOR => {
-                            if b1 & 8 != 0 {
-                                px.set_r(buf.read());
-                            }
-                            if b1 & 4 != 0 {
-                                px.set_g(buf.read());
-                            }
-                            if b1 & 2 != 0 {
-                                px.set_b(buf.read());
-                            }
-                            if b1 & 1 != 0 {
-                                px.set_a(buf.read());
-                            }
-                        }
-                        _ => {}
-                    },
-                },
-            }
+            *px_out = px;
+            continue;
+        }
 
-            unsafe {
-                // Safety: hash_index() is computed mod 64, so it will never go out of bounds
-                *index.get_unchecked_mut(usize::from(px.hash_index())) = px;
+        let b1 = buf.read();
+        match b1 >> 4 {
+            0..=3 => {
+                // QOI_INDEX
+                px = unsafe {
+                    // Safety: (b1 ^ QOI_INDEX) is guaranteed to be at most 6 bits
+                    *index.get_unchecked(usize::from(b1 ^ QOI_INDEX))
+                };
             }
+            15 => {
+                // QOI_COLOR
+                if b1 & 8 != 0 {
+                    px.set_r(buf.read());
+                }
+                if b1 & 4 != 0 {
+                    px.set_g(buf.read());
+                }
+                if b1 & 2 != 0 {
+                    px.set_b(buf.read());
+                }
+                if b1 & 1 != 0 {
+                    px.set_a(buf.read());
+                }
+            }
+            12..=13 => {
+                // QOI_DIFF_16
+                let b2 = buf.read();
+                px.rgb_add(
+                    (b1 & 0x1f).wrapping_sub(16),
+                    (b2 >> 4).wrapping_sub(8),
+                    (b2 & 0x0f).wrapping_sub(8),
+                );
+            }
+            14 => {
+                // QOI_DIFF_24
+                let (b2, b3) = (buf.read(), buf.read());
+                px.rgba_add(
+                    (((b1 & 0x0f) << 1) | (b2 >> 7)).wrapping_sub(16),
+                    ((b2 & 0x7c) >> 2).wrapping_sub(16),
+                    (((b2 & 0x03) << 3) | ((b3 & 0xe0) >> 5)).wrapping_sub(16),
+                    (b3 & 0x1f).wrapping_sub(16),
+                );
+            }
+            4..=5 => {
+                // QOI_RUN_8
+                run = u16::from(b1 & 0x1f);
+                *px_out = px;
+                continue;
+            }
+            8..=11 => {
+                // QOI_DIFF_8
+                px.rgb_add(
+                    ((b1 >> 4) & 0x03).wrapping_sub(2),
+                    ((b1 >> 2) & 0x03).wrapping_sub(2),
+                    (b1 & 0x03).wrapping_sub(2),
+                );
+            }
+            6..=7 => {
+                // QOI_RUN_16
+                run = 32 + ((u16::from(b1 & 0x1f) << 8) | u16::from(buf.read()));
+                *px_out = px;
+                continue;
+            }
+            _ => {}
+        }
+
+        unsafe {
+            // Safety: hash_index() is computed mod 64, so it will never go out of bounds
+            *index.get_unchecked_mut(usize::from(px.hash_index())) = px;
         }
 
         *px_out = px;
