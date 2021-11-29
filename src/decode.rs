@@ -75,7 +75,10 @@ where
             let b1 = buf.read();
             match b1 & QOI_MASK_2 {
                 QOI_INDEX => {
-                    px = index[usize::from(b1 ^ QOI_INDEX)];
+                    px = unsafe {
+                        // Safety: (b1 ^ QOI_INDEX) is guaranteed to be at most 6 bits
+                        *index.get_unchecked(usize::from(b1 ^ QOI_INDEX))
+                    };
                 }
                 QOI_DIFF_8 => {
                     px.rgb_add(
