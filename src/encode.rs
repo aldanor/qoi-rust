@@ -151,7 +151,7 @@ where
     header.width = width;
     header.height = height;
     header.channels = N as u8;
-    header.colorspace = colorspace.into();
+    header.colorspace = colorspace;
     buf.write(header.to_bytes());
 
     let mut index = [Pixel::new(); 64];

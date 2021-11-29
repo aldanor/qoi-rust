@@ -1,3 +1,4 @@
+use crate::colorspace::ColorSpace;
 use crate::consts::{QOI_HEADER_SIZE, QOI_MAGIC};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -6,12 +7,18 @@ pub struct Header {
     pub width: u32,
     pub height: u32,
     pub channels: u8,
-    pub colorspace: u8,
+    pub colorspace: ColorSpace,
 }
 
 impl Default for Header {
     fn default() -> Self {
-        Self { magic: QOI_MAGIC, width: 0, height: 0, channels: 3, colorspace: 0 }
+        Self {
+            magic: QOI_MAGIC,
+            width: 0,
+            height: 0,
+            channels: 3,
+            colorspace: ColorSpace::default(),
+        }
     }
 }
 
@@ -37,7 +44,7 @@ impl Header {
         out[4..8].copy_from_slice(&u32_to_be(self.width));
         out[8..12].copy_from_slice(&u32_to_be(self.height));
         out[12] = self.channels;
-        out[13] = self.colorspace;
+        out[13] = self.colorspace.into();
         out
     }
 
@@ -47,7 +54,7 @@ impl Header {
         out.width = u32_from_be(&v[4..8]);
         out.height = u32_from_be(&v[8..12]);
         out.channels = v[12];
-        out.colorspace = v[13];
+        out.colorspace = v[13].into();
         out
     }
 }
