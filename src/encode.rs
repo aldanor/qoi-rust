@@ -122,35 +122,38 @@ fn encode_diff_wrapping<const N: usize>(
     }
 }
 
-pub(crate) fn qoi_encode_impl<const N: usize, const CANONICAL: bool>(
-    data: &[u8], width: u32, height: u32, colorspace: ColorSpace,
-) -> Result<Vec<u8>>
+pub(crate) fn qoi_encode_impl<const CHANNELS: usize, const CANONICAL: bool>(
+    out: &mut [u8], data: &[u8], width: u32, height: u32, colorspace: ColorSpace,
+) -> Result<usize>
 where
-    Pixel<N>: SupportedChannels,
+    Pixel<CHANNELS>: SupportedChannels,
 {
+    let max_len = encode_size_required(width, height, CHANNELS as u8);
+    if out.len() < max_len {
+        return Err(Error::OutputBufferTooSmall { size: out.len(), required: max_len });
+    }
+
     let n_pixels = (width as usize) * (height as usize);
     if data.is_empty() {
         return Err(Error::EmptyImage { width, height });
-    } else if n_pixels * N != data.len() {
-        return Err(Error::BadEncodingDataSize { size: data.len(), expected: n_pixels * N });
+    } else if n_pixels * CHANNELS != data.len() {
+        return Err(Error::BadEncodingDataSize { size: data.len(), expected: n_pixels * CHANNELS });
     }
 
     let pixels = unsafe {
         // Safety: we've verified that n_pixels * N == data.len()
-        slice::from_raw_parts::<Pixel<N>>(data.as_ptr() as _, n_pixels)
+        slice::from_raw_parts::<Pixel<CHANNELS>>(data.as_ptr() as _, n_pixels)
     };
 
-    let max_size = QOI_HEADER_SIZE + n_pixels * (N + 1) + QOI_PADDING;
-    let mut bytes = Vec::<u8>::with_capacity(max_size);
     let mut buf = unsafe {
         // Safety: all write ops are guaranteed to not go outside allocation
-        WriteBuf::new(bytes.as_mut_ptr())
+        WriteBuf::new(out.as_mut_ptr())
     };
 
     let mut header = Header::default();
     header.width = width;
     header.height = height;
-    header.channels = N as u8;
+    header.channels = CHANNELS as u8;
     header.colorspace = colorspace;
     buf.write(header.to_bytes());
 
@@ -191,9 +194,9 @@ where
                 *index_px = px;
 
                 let nonzero = if CANONICAL {
-                    encode_diff_canonical::<N>(px, px_prev, &mut buf)
+                    encode_diff_canonical::<CHANNELS>(px, px_prev, &mut buf)
                 } else {
-                    encode_diff_wrapping::<N>(px, px_prev, &mut buf)
+                    encode_diff_wrapping::<CHANNELS>(px, px_prev, &mut buf)
                 };
 
                 if let Some((r, g, b, a)) = nonzero {
@@ -218,28 +221,58 @@ where
     }
 
     buf.write([0; QOI_PADDING]);
-
-    unsafe {
-        // Safety: buffer length cannot exceed allocated capacity
-        bytes.set_len(buf.len());
-    }
-
-    Ok(bytes)
+    Ok(buf.len())
 }
 
-pub(crate) fn qoi_encode_to_vec_impl<const CANONICAL: bool>(
-    data: &[u8], width: u32, height: u32, channels: u8, colorspace: ColorSpace,
-) -> Result<Vec<u8>> {
+pub(crate) fn encode_to_buf_impl<const CANONICAL: bool>(
+    out: &mut [u8], data: &[u8], width: u32, height: u32, channels: u8, colorspace: ColorSpace,
+) -> Result<usize> {
     match channels {
-        3 => qoi_encode_impl::<3, CANONICAL>(data, width, height, colorspace),
-        4 => qoi_encode_impl::<4, CANONICAL>(data, width, height, colorspace),
+        3 => qoi_encode_impl::<3, CANONICAL>(out, data, width, height, colorspace),
+        4 => qoi_encode_impl::<4, CANONICAL>(out, data, width, height, colorspace),
         _ => Err(Error::InvalidChannels { channels }),
     }
+}
+
+pub(crate) fn encode_to_vec_impl<const CANONICAL: bool>(
+    data: &[u8], width: u32, height: u32, channels: u8, colorspace: ColorSpace,
+) -> Result<Vec<u8>> {
+    let mut out = Vec::with_capacity(encode_size_required(width, height, channels));
+    unsafe {
+        out.set_len(out.capacity());
+    }
+    let size =
+        encode_to_buf_impl::<CANONICAL>(&mut out, data, width, height, channels, colorspace)?;
+    out.truncate(size);
+    Ok(out)
+}
+
+pub fn encode_size_required(width: u32, height: u32, channels: u8) -> usize {
+    let (width, height) = (width as usize, height as usize);
+    let n_pixels = width.saturating_mul(height);
+    return QOI_HEADER_SIZE
+        + n_pixels.saturating_mul(usize::from(channels))
+        + n_pixels
+        + QOI_PADDING;
 }
 
 pub fn qoi_encode_to_vec(
     data: impl AsRef<[u8]>, width: u32, height: u32, channels: u8,
     colorspace: impl Into<ColorSpace>,
 ) -> Result<Vec<u8>> {
-    qoi_encode_to_vec_impl::<false>(data.as_ref(), width, height, channels, colorspace.into())
+    encode_to_vec_impl::<false>(data.as_ref(), width, height, channels, colorspace.into())
+}
+
+pub fn qoi_encode_to_buf(
+    mut out: impl AsMut<[u8]>, data: impl AsRef<[u8]>, width: u32, height: u32, channels: u8,
+    colorspace: impl Into<ColorSpace>,
+) -> Result<usize> {
+    encode_to_buf_impl::<false>(
+        out.as_mut(),
+        data.as_ref(),
+        width,
+        height,
+        channels,
+        colorspace.into(),
+    )
 }
