@@ -4,29 +4,30 @@ use crate::consts::{QOI_HEADER_SIZE, QOI_INDEX, QOI_MAGIC, QOI_PADDING};
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
+use crate::utils::unlikely;
 
 struct ReadBuf {
-    start: *const u8,
+    current: *const u8,
     end: *const u8,
 }
 
 impl ReadBuf {
-    pub unsafe fn new(ptr: *const u8) -> Self {
-        Self { start: ptr, end: ptr }
+    pub unsafe fn new(ptr: *const u8, len: usize) -> Self {
+        Self { current: ptr, end: ptr.add(len) }
     }
 
     #[inline]
     pub fn read(&mut self) -> u8 {
         unsafe {
-            let v = self.end.read();
-            self.end = self.end.add(1);
+            let v = self.current.read();
+            self.current = self.current.add(1);
             v
         }
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        unsafe { self.end.offset_from(self.start).max(0) as usize }
+    pub fn within_bounds(&self) -> bool {
+        self.current < self.end
     }
 }
 
@@ -55,9 +56,10 @@ where
         // Safety: we have just allocated enough memory to set the length without problems
         pixels.set_len(n_pixels);
     }
+    let mut encoded_data_size = data.len() - QOI_HEADER_SIZE - QOI_PADDING;
     let mut buf = unsafe {
         // Safety: we will check within the loop that there are no reads outside the slice
-        ReadBuf::new(data.as_ptr().add(QOI_HEADER_SIZE))
+        ReadBuf::new(data.as_ptr().add(QOI_HEADER_SIZE), encoded_data_size)
     };
 
     let mut index = [Pixel::new(); 64];
@@ -65,6 +67,10 @@ where
     let mut run = 0_u16;
 
     for px_out in pixels.iter_mut() {
+        if unlikely(!buf.within_bounds()) {
+            break;
+        }
+
         // TODO: check for safety that ReadBuf is not over yet
         if run != 0 {
             run -= 1;
