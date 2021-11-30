@@ -1,0 +1,25 @@
+[package]
+name = "qoi-fast-fuzz"
+version = "0.1.0"
+authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+# internal
+qoi-fast = { path = ".." }
+# external
+libfuzzer-sys = "0.4"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "qoi_encode"
+path = "fuzz_targets/qoi_encode.rs"
+test = false
+doc = false
