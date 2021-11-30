@@ -135,7 +135,12 @@ where
                 *px_out = px;
                 continue;
             }
-            _ => {}
+            _ => {
+                unsafe {
+                    // the compiler should figure it out on its own, but just in case
+                    core::hint::unreachable_unchecked()
+                }
+            }
         }
 
         unsafe {
