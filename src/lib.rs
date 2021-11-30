@@ -5,6 +5,7 @@ mod encode;
 mod error;
 mod header;
 mod pixel;
+mod utils;
 
 pub mod canonical;
 
