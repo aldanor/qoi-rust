@@ -178,3 +178,19 @@ pub fn qoi_decode_to_vec(data: impl AsRef<[u8]>, channels: u8) -> Result<(Header
         _ => Err(Error::InvalidChannels { channels }),
     }
 }
+
+#[inline]
+pub fn qoi_decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
+    let data = data.as_ref();
+    if data.len() < QOI_HEADER_SIZE {
+        return Err(Error::InputBufferTooSmall { size: data.len(), required: QOI_HEADER_SIZE });
+    }
+    let header = unsafe {
+        // Safety: we have just checked the length above
+        Header::from_bytes(*(data.as_ptr() as *const _))
+    };
+    if header.magic != QOI_MAGIC {
+        return Err(Error::InvalidMagic { magic: header.magic });
+    }
+    Ok(header)
+}
