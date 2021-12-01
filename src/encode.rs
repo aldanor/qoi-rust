@@ -8,6 +8,7 @@ use crate::consts::{
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
+use crate::utils::unlikely;
 
 struct WriteBuf {
     start: *const u8,
@@ -129,14 +130,14 @@ where
     Pixel<CHANNELS>: SupportedChannels,
 {
     let max_len = encode_size_required(width, height, CHANNELS as u8);
-    if out.len() < max_len {
+    if unlikely(out.len() < max_len) {
         return Err(Error::OutputBufferTooSmall { size: out.len(), required: max_len });
     }
 
     let n_pixels = (width as usize) * (height as usize);
-    if data.is_empty() {
+    if unlikely(data.is_empty()) {
         return Err(Error::EmptyImage { width, height });
-    } else if n_pixels * CHANNELS != data.len() {
+    } else if unlikely(n_pixels * CHANNELS != data.len()) {
         return Err(Error::BadEncodingDataSize { size: data.len(), expected: n_pixels * CHANNELS });
     }
 
@@ -224,6 +225,7 @@ where
     Ok(buf.len())
 }
 
+#[inline]
 pub(crate) fn encode_to_buf_impl<const CANONICAL: bool>(
     out: &mut [u8], data: &[u8], width: u32, height: u32, channels: u8, colorspace: ColorSpace,
 ) -> Result<usize> {
@@ -234,6 +236,7 @@ pub(crate) fn encode_to_buf_impl<const CANONICAL: bool>(
     }
 }
 
+#[inline]
 pub(crate) fn encode_to_vec_impl<const CANONICAL: bool>(
     data: &[u8], width: u32, height: u32, channels: u8, colorspace: ColorSpace,
 ) -> Result<Vec<u8>> {
@@ -247,6 +250,7 @@ pub(crate) fn encode_to_vec_impl<const CANONICAL: bool>(
     Ok(out)
 }
 
+#[inline]
 pub fn encode_size_required(width: u32, height: u32, channels: u8) -> usize {
     let (width, height) = (width as usize, height as usize);
     let n_pixels = width.saturating_mul(height);
@@ -256,6 +260,7 @@ pub fn encode_size_required(width: u32, height: u32, channels: u8) -> usize {
         + QOI_PADDING;
 }
 
+#[inline]
 pub fn qoi_encode_to_vec(
     data: impl AsRef<[u8]>, width: u32, height: u32, channels: u8,
     colorspace: impl Into<ColorSpace>,
@@ -263,6 +268,7 @@ pub fn qoi_encode_to_vec(
     encode_to_vec_impl::<false>(data.as_ref(), width, height, channels, colorspace.into())
 }
 
+#[inline]
 pub fn qoi_encode_to_buf(
     mut out: impl AsMut<[u8]>, data: impl AsRef<[u8]>, width: u32, height: u32, channels: u8,
     colorspace: impl Into<ColorSpace>,
