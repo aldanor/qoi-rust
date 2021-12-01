@@ -2,14 +2,14 @@ use std::error::Error as StdError;
 use std::fmt::{self, Display};
 use std::result::Result as StdResult;
 
-use crate::consts::{QOI_HEADER_SIZE, QOI_MAGIC, QOI_PADDING};
+use crate::consts::QOI_MAGIC;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Error {
     InvalidChannels { channels: u8 },
     EmptyImage { width: u32, height: u32 },
     BadEncodingDataSize { size: usize, expected: usize },
-    BadDecodingDataSize { size: usize },
+    InputBufferTooSmall { size: usize, required: usize },
     OutputBufferTooSmall { size: usize, required: usize },
     InvalidMagic { magic: u32 },
     // TODO: invalid colorspace
@@ -29,9 +29,8 @@ impl Display for Error {
             Self::BadEncodingDataSize { size, expected } => {
                 write!(f, "bad data size when encoding: {} (expected: {})", size, expected)
             }
-            Self::BadDecodingDataSize { size } => {
-                let min_size = QOI_HEADER_SIZE + QOI_PADDING;
-                write!(f, "bad data size when decoding: {} (minimum required: {})", size, min_size)
+            Self::InputBufferTooSmall { size, required } => {
+                write!(f, "input buffer size too small: {} (minimum required: {})", size, required)
             }
             Self::OutputBufferTooSmall { size, required } => {
                 write!(f, "output buffer size too small: {} (minimum required: {})", size, required)

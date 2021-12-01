@@ -36,7 +36,10 @@ where
     Pixel<N>: SupportedChannels,
 {
     if data.len() < QOI_HEADER_SIZE + QOI_PADDING {
-        return Err(Error::BadDecodingDataSize { size: data.len() });
+        return Err(Error::InputBufferTooSmall {
+            size: data.len(),
+            required: QOI_HEADER_SIZE + QOI_PADDING,
+        });
     }
     let header = Header::from_bytes(unsafe {
         // Safety: Header is a POD type and we have just checked that the data fits it
