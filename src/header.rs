@@ -13,6 +13,7 @@ pub struct Header {
 }
 
 impl Default for Header {
+    #[inline]
     fn default() -> Self {
         Self {
             magic: QOI_MAGIC,
@@ -24,6 +25,7 @@ impl Default for Header {
     }
 }
 
+#[inline(always)]
 const fn u32_to_be(v: u32) -> [u8; 4] {
     [
         ((0xff000000 & v) >> 24) as u8,
@@ -33,6 +35,7 @@ const fn u32_to_be(v: u32) -> [u8; 4] {
     ]
 }
 
+#[inline(always)]
 const fn u32_from_be(v: &[u8]) -> u32 {
     ((v[0] as u32) << 24) | ((v[1] as u32) << 16) | ((v[2] as u32) << 8) | (v[3] as u32)
 }
@@ -40,6 +43,7 @@ const fn u32_from_be(v: &[u8]) -> u32 {
 impl Header {
     pub const SIZE: usize = QOI_HEADER_SIZE;
 
+    #[inline]
     pub(crate) fn to_bytes(&self) -> [u8; QOI_HEADER_SIZE] {
         let mut out = [0; QOI_HEADER_SIZE];
         out[..4].copy_from_slice(&u32_to_be(self.magic));
@@ -50,6 +54,7 @@ impl Header {
         out
     }
 
+    #[inline]
     pub(crate) fn from_bytes(v: [u8; QOI_HEADER_SIZE]) -> Self {
         let mut out = Self::default();
         out.magic = u32_from_be(&v[..4]);
@@ -60,6 +65,7 @@ impl Header {
         out
     }
 
+    #[inline]
     pub const fn n_pixels(&self) -> usize {
         (self.width as usize).saturating_mul(self.height as usize)
     }
