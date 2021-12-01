@@ -1,5 +1,4 @@
 mod colorspace;
-mod consts;
 mod decode;
 mod encode;
 mod error;
@@ -8,6 +7,7 @@ mod pixel;
 mod utils;
 
 pub mod canonical;
+pub mod consts;
 
 pub use crate::colorspace::ColorSpace;
 pub use crate::decode::qoi_decode_to_vec;
