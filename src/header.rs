@@ -57,4 +57,8 @@ impl Header {
         out.colorspace = v[13].into();
         out
     }
+
+    pub const fn n_pixels(&self) -> usize {
+        (self.width as usize).saturating_mul(self.height as usize)
+    }
 }
