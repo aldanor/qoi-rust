@@ -11,7 +11,7 @@ pub mod consts;
 
 pub use crate::colorspace::ColorSpace;
 pub use crate::decode::qoi_decode_to_vec;
-pub use crate::encode::qoi_encode_to_vec;
+pub use crate::encode::{encode_size_required, qoi_encode_to_buf, qoi_encode_to_vec};
 pub use crate::error::{Error, Result};
 pub use crate::header::Header;
 
