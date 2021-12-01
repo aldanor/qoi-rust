@@ -56,7 +56,7 @@ where
         // Safety: we have just allocated enough memory to set the length without problems
         pixels.set_len(n_pixels);
     }
-    let mut encoded_data_size = data.len() - QOI_HEADER_SIZE - QOI_PADDING;
+    let encoded_data_size = data.len() - QOI_HEADER_SIZE - QOI_PADDING;
     let mut buf = unsafe {
         // Safety: we will check within the loop that there are no reads outside the slice
         ReadBuf::new(data.as_ptr().add(QOI_HEADER_SIZE), encoded_data_size)
