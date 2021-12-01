@@ -1,5 +1,7 @@
 use crate::colorspace::ColorSpace;
 use crate::consts::{QOI_HEADER_SIZE, QOI_MAGIC};
+use crate::error::{Error, Result};
+use crate::utils::unlikely;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Header {
@@ -60,5 +62,17 @@ impl Header {
 
     pub const fn n_pixels(&self) -> usize {
         (self.width as usize).saturating_mul(self.height as usize)
+    }
+
+    #[inline]
+    pub fn validate(&self) -> Result<()> {
+        if unlikely(self.magic != QOI_MAGIC) {
+            return Err(Error::InvalidMagic { magic: self.magic });
+        } else if unlikely(self.height == 0 || self.width == 0) {
+            return Err(Error::EmptyImage { width: self.width, height: self.height });
+        } else if unlikely(self.channels < 3 || self.channels > 4) {
+            return Err(Error::InvalidChannels { channels: self.channels });
+        }
+        Ok(())
     }
 }

@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::consts::{QOI_HEADER_SIZE, QOI_INDEX, QOI_MAGIC, QOI_PADDING};
+use crate::consts::{QOI_HEADER_SIZE, QOI_INDEX, QOI_PADDING};
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
@@ -182,6 +182,7 @@ pub fn qoi_decode_to_vec(
 ) -> Result<(Header, Vec<u8>)> {
     let data = data.as_ref();
     let header = qoi_decode_header(data)?;
+    header.validate()?;
     let channels = channels.maybe_channels().unwrap_or(header.channels);
     match channels {
         3 => Ok((header, qoi_decode_impl::<3>(data, header.n_pixels())?)),
@@ -198,12 +199,5 @@ pub fn qoi_decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
     }
     let mut bytes = [0_u8; QOI_HEADER_SIZE];
     bytes.copy_from_slice(&data[..QOI_HEADER_SIZE]);
-    let header = Header::from_bytes(bytes);
-    if unlikely(header.magic != QOI_MAGIC) {
-        return Err(Error::InvalidMagic { magic: header.magic });
-    }
-    if unlikely(header.height == 0 || header.width == 0) {
-        return Err(Error::EmptyImage { width: header.width, height: header.height });
-    }
-    Ok(header)
+    Ok(Header::from_bytes(bytes))
 }
