@@ -12,6 +12,7 @@ pub enum Error {
     InputBufferTooSmall { size: usize, required: usize },
     OutputBufferTooSmall { size: usize, required: usize },
     InvalidMagic { magic: u32 },
+    UnexpectedBufferEnd,
     // TODO: invalid colorspace
 }
 
@@ -37,6 +38,9 @@ impl Display for Error {
             }
             Self::InvalidMagic { magic } => {
                 write!(f, "invalid magic: expected {:?}, got {:?}", QOI_MAGIC, magic)
+            }
+            Self::UnexpectedBufferEnd => {
+                write!(f, "unexpected input buffer end while decoding")
             }
         }
     }

@@ -58,15 +58,12 @@ where
     let mut run = 0_u16;
 
     for px_out in pixels.iter_mut() {
-        if unlikely(!buf.within_bounds()) {
-            break;
-        }
-
-        // TODO: check for safety that ReadBuf is not over yet
         if run != 0 {
             run -= 1;
             *px_out = px;
             continue;
+        } else if unlikely(!buf.within_bounds()) {
+            return Err(Error::UnexpectedBufferEnd);
         }
 
         let b1 = buf.read();
