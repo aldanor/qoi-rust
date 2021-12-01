@@ -23,3 +23,9 @@ name = "qoi_encode"
 path = "fuzz_targets/qoi_encode.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "qoi_decode"
+path = "fuzz_targets/qoi_decode.rs"
+test = false
+doc = false
