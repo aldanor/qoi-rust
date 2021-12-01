@@ -1,4 +1,6 @@
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+use std::fmt::{self, Debug};
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ColorSpace {
     pub r_linear: bool,
     pub g_linear: bool,
@@ -54,5 +56,15 @@ impl From<u8> for ColorSpace {
 impl From<ColorSpace> for u8 {
     fn from(value: ColorSpace) -> Self {
         value.to_u8()
+    }
+}
+
+impl Debug for ColorSpace {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "ColorSpace({}{}{}{})",
+            self.r_linear as u8, self.g_linear as u8, self.b_linear as u8, self.a_linear as u8
+        )
     }
 }
