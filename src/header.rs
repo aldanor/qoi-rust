@@ -41,7 +41,10 @@ const fn u32_from_be(v: &[u8]) -> u32 {
 }
 
 impl Header {
-    pub const SIZE: usize = QOI_HEADER_SIZE;
+    #[inline]
+    pub const fn encoded_size() -> usize {
+        QOI_HEADER_SIZE
+    }
 
     #[inline]
     pub(crate) fn to_bytes(&self) -> [u8; QOI_HEADER_SIZE] {
