@@ -12,22 +12,15 @@ documentation = "https://docs.rs/qoi-fast"
 categories = ["multimedia::images", "multimedia::encoding"]
 keywords = ["qoi", "graphics", "image", "encoding"]
 exclude = [
-    "benches/*",
     "assets/*",
 ]
+
+[workspace]
+members = ["qoi-bench"]
 
 [dev-dependencies]
 png = "^0.17.2"
 
-[target.'cfg(bench)'.dev-dependencies]
-# to activate, pass RUSTFLAGS="--cfg bench" until cargo does this automatically
-criterion = "^0.3.5"
-
 [lib]
 name = "qoi_fast"
 path = "src/lib.rs"
-bench = false
-
-[[bench]]
-name = "bench"
-harness = false
