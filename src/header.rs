@@ -42,6 +42,17 @@ const fn u32_from_be(v: &[u8]) -> u32 {
 
 impl Header {
     #[inline]
+    pub const fn new(width: u32, height: u32, channels: u8) -> Self {
+        Self { magic: QOI_MAGIC, width, height, channels, colorspace: ColorSpace::from_u8(0) }
+    }
+
+    #[inline]
+    pub fn with_colorspace(mut self, colorspace: impl Into<ColorSpace>) -> Self {
+        self.colorspace = colorspace.into();
+        self
+    }
+
+    #[inline]
     pub const fn encoded_size() -> usize {
         QOI_HEADER_SIZE
     }
