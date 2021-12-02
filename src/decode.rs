@@ -57,7 +57,7 @@ where
     let mut px = Pixel::new().with_a(0xff);
     let mut run = 0_u16;
 
-    for px_out in pixels.iter_mut() {
+    for px_out in &mut pixels {
         if run != 0 {
             run -= 1;
             *px_out = px;
@@ -149,27 +149,27 @@ where
         // Safety: this is safe because we have previously set all the lengths ourselves
         let ptr = pixels.as_mut_ptr();
         mem::forget(pixels);
-        Vec::from_raw_parts(ptr as *mut _, n_pixels * N, n_pixels * N)
+        Vec::from_raw_parts(ptr.cast(), n_pixels * N, n_pixels * N)
     };
 
     Ok(bytes)
 }
 
 pub trait MaybeChannels {
-    fn maybe_channels(&self) -> Option<u8>;
+    fn maybe_channels(self) -> Option<u8>;
 }
 
 impl MaybeChannels for u8 {
     #[inline]
-    fn maybe_channels(&self) -> Option<u8> {
-        Some(*self)
+    fn maybe_channels(self) -> Option<u8> {
+        Some(self)
     }
 }
 
 impl MaybeChannels for Option<u8> {
     #[inline]
-    fn maybe_channels(&self) -> Option<u8> {
-        *self
+    fn maybe_channels(self) -> Option<u8> {
+        self
     }
 }
 

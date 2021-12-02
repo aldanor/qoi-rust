@@ -16,7 +16,7 @@ struct WriteBuf {
 }
 
 impl WriteBuf {
-    pub unsafe fn new(ptr: *mut u8) -> Self {
+    pub const unsafe fn new(ptr: *mut u8) -> Self {
         Self { start: ptr, current: ptr }
     }
 
@@ -50,10 +50,10 @@ impl WriteBuf {
 fn encode_diff_canonical<const N: usize>(
     px: Pixel<N>, px_prev: Pixel<N>, buf: &mut WriteBuf,
 ) -> Option<(bool, bool, bool, bool)> {
-    let vr = (px.r() as i16) - (px_prev.r() as i16);
-    let vg = (px.g() as i16) - (px_prev.g() as i16);
-    let vb = (px.b() as i16) - (px_prev.b() as i16);
-    let va = (px.a_or(0) as i16) - (px_prev.a_or(0) as i16);
+    let vr = i16::from(px.r()) - i16::from(px_prev.r());
+    let vg = i16::from(px.g()) - i16::from(px_prev.g());
+    let vb = i16::from(px.b()) - i16::from(px_prev.b());
+    let va = i16::from(px.a_or(0)) - i16::from(px_prev.a_or(0));
 
     let (vr_16, vg_16, vb_16, va_16) = (vr + 16, vg + 16, vb + 16, va + 16);
     if vr_16 | vg_16 | vb_16 | va_16 | 31 == 31 {
@@ -123,7 +123,7 @@ fn encode_diff_wrapping<const N: usize>(
     }
 }
 
-pub(crate) fn qoi_encode_impl<const CHANNELS: usize, const CANONICAL: bool>(
+fn qoi_encode_impl<const CHANNELS: usize, const CANONICAL: bool>(
     out: &mut [u8], data: &[u8], width: u32, height: u32, colorspace: ColorSpace,
 ) -> Result<usize>
 where
@@ -143,7 +143,7 @@ where
 
     let pixels = unsafe {
         // Safety: we've verified that n_pixels * N == data.len()
-        slice::from_raw_parts::<Pixel<CHANNELS>>(data.as_ptr() as _, n_pixels)
+        slice::from_raw_parts::<Pixel<CHANNELS>>(data.as_ptr().cast(), n_pixels)
     };
 
     let mut buf = unsafe {
@@ -151,11 +151,8 @@ where
         WriteBuf::new(out.as_mut_ptr())
     };
 
-    let mut header = Header::default();
-    header.width = width;
-    header.height = height;
-    header.channels = CHANNELS as u8;
-    header.colorspace = colorspace;
+    let header =
+        Header { width, height, channels: CHANNELS as u8, colorspace, ..Header::default() };
     buf.write(header.to_bytes());
 
     let mut index = [Pixel::new(); 64];
@@ -226,7 +223,7 @@ where
 }
 
 #[inline]
-pub(crate) fn encode_to_buf_impl<const CANONICAL: bool>(
+pub fn encode_to_buf_impl<const CANONICAL: bool>(
     out: &mut [u8], data: &[u8], width: u32, height: u32, channels: u8, colorspace: ColorSpace,
 ) -> Result<usize> {
     match channels {
@@ -237,7 +234,7 @@ pub(crate) fn encode_to_buf_impl<const CANONICAL: bool>(
 }
 
 #[inline]
-pub(crate) fn encode_to_vec_impl<const CANONICAL: bool>(
+pub fn encode_to_vec_impl<const CANONICAL: bool>(
     data: &[u8], width: u32, height: u32, channels: u8, colorspace: ColorSpace,
 ) -> Result<Vec<u8>> {
     let mut out = Vec::with_capacity(encode_size_required(width, height, channels));
@@ -254,10 +251,7 @@ pub(crate) fn encode_to_vec_impl<const CANONICAL: bool>(
 pub fn encode_size_required(width: u32, height: u32, channels: u8) -> usize {
     let (width, height) = (width as usize, height as usize);
     let n_pixels = width.saturating_mul(height);
-    return QOI_HEADER_SIZE
-        + n_pixels.saturating_mul(usize::from(channels))
-        + n_pixels
-        + QOI_PADDING;
+    QOI_HEADER_SIZE + n_pixels.saturating_mul(usize::from(channels)) + n_pixels + QOI_PADDING
 }
 
 #[inline]

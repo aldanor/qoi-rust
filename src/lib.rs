@@ -1,3 +1,15 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
+#![allow(
+    clippy::inline_always,
+    clippy::struct_excessive_bools,
+    clippy::fn_params_excessive_bools,
+    clippy::similar_names,
+    clippy::missing_errors_doc,
+    clippy::must_use_candidate,
+    clippy::never_loop,
+    clippy::module_name_repetitions
+)]
+
 mod colorspace;
 mod decode;
 mod encode;

@@ -28,10 +28,10 @@ impl Default for Header {
 #[inline(always)]
 const fn u32_to_be(v: u32) -> [u8; 4] {
     [
-        ((0xff000000 & v) >> 24) as u8,
-        ((0xff0000 & v) >> 16) as u8,
+        ((0xff00_0000 & v) >> 24) as u8,
+        ((0x00ff_0000 & v) >> 16) as u8,
         ((0xff00 & v) >> 8) as u8,
-        (0xff & v) as u8,
+        (0x00ff & v) as u8,
     ]
 }
 
@@ -56,13 +56,13 @@ impl Header {
 
     #[inline]
     pub(crate) fn from_bytes(v: [u8; QOI_HEADER_SIZE]) -> Self {
-        let mut out = Self::default();
-        out.magic = u32_from_be(&v[..4]);
-        out.width = u32_from_be(&v[4..8]);
-        out.height = u32_from_be(&v[8..12]);
-        out.channels = v[12];
-        out.colorspace = v[13].into();
-        out
+        Self {
+            magic: u32_from_be(&v[..4]),
+            width: u32_from_be(&v[4..8]),
+            height: u32_from_be(&v[8..12]),
+            channels: v[12],
+            colorspace: v[13].into(),
+        }
     }
 
     #[inline]
@@ -71,7 +71,7 @@ impl Header {
     }
 
     #[inline]
-    pub fn validate(&self) -> Result<()> {
+    pub const fn validate(&self) -> Result<()> {
         if unlikely(self.magic != QOI_MAGIC) {
             return Err(Error::InvalidMagic { magic: self.magic });
         } else if unlikely(self.height == 0 || self.width == 0) {
