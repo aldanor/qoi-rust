@@ -19,7 +19,9 @@ exclude = [
 members = ["qoi-bench"]
 
 [dev-dependencies]
-png = "^0.17.2"
+anyhow = "1.0"
+png = "0.17"
+walkdir = "2.3"
 
 [lib]
 name = "qoi_fast"
