@@ -131,28 +131,6 @@ impl Codec for CodecQoiFast {
     }
 }
 
-struct CodecQoiFastCanonical;
-
-impl Codec for CodecQoiFastCanonical {
-    fn name() -> &'static str {
-        "qoi-fast(c)"
-    }
-
-    fn encode(img: &Image) -> Result<Vec<u8>> {
-        Ok(qoi_fast::canonical::qoi_encode_to_vec(
-            &img.data,
-            img.width,
-            img.height,
-            img.channels,
-            0,
-        )?)
-    }
-
-    fn decode(data: &[u8], img: &Image) -> Result<Vec<u8>> {
-        Ok(qoi_fast::qoi_decode_to_vec(data, img.channels)?.1)
-    }
-}
-
 struct CodecQoiC;
 
 impl CodecQoiC {
@@ -319,7 +297,6 @@ fn bench_png(filename: &Path) -> Result<()> {
     let mut bench = ImageBench::new(img, 5.);
     bench.run::<CodecQoiC>()?;
     bench.run::<CodecQoiFast>()?;
-    bench.run::<CodecQoiFastCanonical>()?;
     bench.report(true);
     Ok(())
 }

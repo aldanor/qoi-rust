@@ -18,7 +18,6 @@ mod header;
 mod pixel;
 mod utils;
 
-pub mod canonical;
 pub mod consts;
 
 pub use crate::colorspace::ColorSpace;
