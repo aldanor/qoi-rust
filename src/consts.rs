@@ -24,3 +24,5 @@ pub const QOI_PADDING: usize = 4;
 
 pub const QOI_MAGIC: u32 =
     (b'q' as u32) << 24 | (b'o' as u32) << 16 | (b'i' as u32) << 8 | (b'f' as u32);
+
+pub const QOI_PIXELS_MAX: usize = 400_000_000;

@@ -1,5 +1,5 @@
 use crate::colorspace::ColorSpace;
-use crate::consts::{QOI_HEADER_SIZE, QOI_MAGIC};
+use crate::consts::{QOI_HEADER_SIZE, QOI_MAGIC, QOI_PIXELS_MAX};
 use crate::error::{Error, Result};
 use crate::utils::unlikely;
 
@@ -90,6 +90,8 @@ impl Header {
             return Err(Error::InvalidMagic { magic: self.magic });
         } else if unlikely(self.height == 0 || self.width == 0) {
             return Err(Error::EmptyImage { width: self.width, height: self.height });
+        } else if unlikely((self.height as usize) * (self.width as usize) > QOI_PIXELS_MAX) {
+            return Err(Error::ImageTooLarge { width: self.width, height: self.height });
         } else if unlikely(self.channels < 3 || self.channels > 4) {
             return Err(Error::InvalidChannels { channels: self.channels });
         }

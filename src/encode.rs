@@ -3,7 +3,7 @@ use std::slice;
 use crate::colorspace::ColorSpace;
 use crate::consts::{
     QOI_COLOR, QOI_DIFF_16, QOI_DIFF_24, QOI_DIFF_8, QOI_HEADER_SIZE, QOI_INDEX, QOI_PADDING,
-    QOI_RUN_16, QOI_RUN_8,
+    QOI_PIXELS_MAX, QOI_RUN_16, QOI_RUN_8,
 };
 use crate::error::{Error, Result};
 use crate::header::Header;
@@ -137,6 +137,8 @@ where
     let n_pixels = (width as usize) * (height as usize);
     if unlikely(data.is_empty()) {
         return Err(Error::EmptyImage { width, height });
+    } else if unlikely(n_pixels > QOI_PIXELS_MAX) {
+        return Err(Error::ImageTooLarge { width, height });
     } else if unlikely(n_pixels * CHANNELS != data.len()) {
         return Err(Error::BadEncodingDataSize { size: data.len(), expected: n_pixels * CHANNELS });
     }

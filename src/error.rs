@@ -2,12 +2,13 @@ use std::error::Error as StdError;
 use std::fmt::{self, Display};
 use std::result::Result as StdResult;
 
-use crate::consts::QOI_MAGIC;
+use crate::consts::{QOI_MAGIC, QOI_PIXELS_MAX};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Error {
     InvalidChannels { channels: u8 },
     EmptyImage { width: u32, height: u32 },
+    ImageTooLarge { width: u32, height: u32 },
     BadEncodingDataSize { size: usize, expected: usize },
     InputBufferTooSmall { size: usize, required: usize },
     OutputBufferTooSmall { size: usize, required: usize },
@@ -26,6 +27,10 @@ impl Display for Error {
             }
             Self::EmptyImage { width, height } => {
                 write!(f, "image contains no pixels: {}x{}", width, height)
+            }
+            Self::ImageTooLarge { width, height } => {
+                let mp = QOI_PIXELS_MAX / 1_000_000;
+                write!(f, "image is too large: {}x{} (max={}Mp)", width, height, mp)
             }
             Self::BadEncodingDataSize { size, expected } => {
                 write!(f, "bad data size when encoding: {} (expected: {})", size, expected)
