@@ -9,6 +9,42 @@ impl<const N: usize> Pixel<N> {
     }
 
     #[inline]
+    pub const fn as_rgba(self, with_a: u8) -> Pixel<4> {
+        let mut i = 0;
+        let mut out = Pixel::new();
+        while i < N {
+            out.0[i] = self.0[i];
+            i += 1;
+        }
+        if N < 4 {
+            out.0[3] = with_a;
+        }
+        out
+    }
+
+    #[inline]
+    pub const fn from_rgb(px: Pixel<3>, with_a: u8) -> Self {
+        let mut i = 0;
+        let mut out = Self::new();
+        while i < 3 {
+            out.0[i] = px.0[i];
+            i += 1;
+        }
+        out.with_a(with_a)
+    }
+
+    #[inline]
+    pub const fn from_array<const M: usize>(arr: [u8; M]) -> Self {
+        let mut i = 0;
+        let mut out = Self::new();
+        while i < N && i < M {
+            out.0[i] = arr[i];
+            i += 1;
+        }
+        out
+    }
+
+    #[inline]
     pub const fn r(self) -> u8 {
         self.0[0]
     }
@@ -42,7 +78,11 @@ impl<const N: usize> Pixel<N> {
 
     #[inline]
     pub const fn hash_index(self) -> u8 {
-        (self.r() * 3 + self.g() * 5 + self.b() * 7 + self.a_or(0xff) * 11) % 64
+        let r = self.r().wrapping_mul(3);
+        let g = self.g().wrapping_mul(5);
+        let b = self.b().wrapping_mul(7);
+        let a = self.a_or(0xff).wrapping_mul(11);
+        r.wrapping_add(g).wrapping_add(b).wrapping_add(a) % 64
     }
 
     #[inline]
@@ -50,36 +90,6 @@ impl<const N: usize> Pixel<N> {
         self.0[0] = self.0[0].wrapping_add(r);
         self.0[1] = self.0[1].wrapping_add(g);
         self.0[2] = self.0[2].wrapping_add(b);
-    }
-
-    #[inline]
-    pub fn rgba_add(&mut self, r: u8, g: u8, b: u8, a: u8) {
-        self.rgb_add(r, g, b);
-        if N >= 4 {
-            self.0[3] = self.0[3].wrapping_add(a);
-        }
-    }
-
-    #[inline]
-    pub fn set_r(&mut self, value: u8) {
-        self.0[0] = value;
-    }
-
-    #[inline]
-    pub fn set_g(&mut self, value: u8) {
-        self.0[1] = value;
-    }
-
-    #[inline]
-    pub fn set_b(&mut self, value: u8) {
-        self.0[2] = value;
-    }
-
-    #[inline]
-    pub fn set_a(&mut self, value: u8) {
-        if N >= 4 {
-            self.0[3] = value;
-        }
     }
 }
 

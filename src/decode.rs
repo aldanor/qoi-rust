@@ -1,6 +1,9 @@
 use std::mem;
 
-use crate::consts::{QOI_HEADER_SIZE, QOI_INDEX, QOI_PADDING, QOI_PADDING_SIZE};
+use crate::consts::{
+    QOI_HEADER_SIZE, QOI_OP_DIFF, QOI_OP_INDEX, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA, QOI_OP_RUN,
+    QOI_PADDING_SIZE,
+};
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
@@ -26,6 +29,15 @@ impl ReadBuf {
     }
 
     #[inline]
+    pub fn read_array<const N: usize>(&mut self) -> [u8; N] {
+        unsafe {
+            let v = self.current.cast::<[u8; N]>().read();
+            self.current = self.current.add(N);
+            v
+        }
+    }
+
+    #[inline]
     pub fn within_bounds(&self) -> bool {
         self.current < self.end
     }
@@ -45,17 +57,18 @@ where
     let mut pixels = Vec::<Pixel<N>>::with_capacity(n_pixels);
     unsafe {
         // Safety: we have just allocated enough memory to set the length without problems
+        // We will also fill the entire array, and the data type is pod, so there's no UB.
         pixels.set_len(n_pixels);
     }
-    let encoded_data_size = data.len() - QOI_HEADER_SIZE - QOI_PADDING_SIZE;
     let mut buf = unsafe {
         // Safety: we will check within the loop that there are no reads outside the slice
-        ReadBuf::new(data.as_ptr().add(QOI_HEADER_SIZE), encoded_data_size)
+        // (note that QOI_PADDING_SIZE covers all possible read options within a single op)
+        ReadBuf::new(data.as_ptr().add(QOI_HEADER_SIZE), data.len() - QOI_HEADER_SIZE)
     };
 
     let mut index = [Pixel::new(); 64];
     let mut px = Pixel::new().with_a(0xff);
-    let mut run = 0_u16;
+    let mut run = 0_u8;
 
     for px_out in &mut pixels {
         if run != 0 {
@@ -66,82 +79,52 @@ where
             return Err(Error::UnexpectedBufferEnd);
         }
 
-        let b1 = buf.read();
-        match b1 >> 4 {
-            0..=3 => {
-                // QOI_INDEX
+        const QOI_OP_INDEX_END: u8 = QOI_OP_INDEX | 0x3f;
+        const QOI_OP_RUN_END: u8 = QOI_OP_RUN | 0x3d; // <- note, 0x3d (not 0x3f)
+        const QOI_OP_DIFF_END: u8 = QOI_OP_DIFF | 0x3f;
+        const QOI_OP_LUMA_END: u8 = QOI_OP_LUMA | 0x3f;
+
+        match buf.read() {
+            b1 @ QOI_OP_INDEX..=QOI_OP_INDEX_END => {
                 px = unsafe {
                     // Safety: (b1 ^ QOI_INDEX) is guaranteed to be at most 6 bits
-                    *index.get_unchecked(usize::from(b1 ^ QOI_INDEX))
+                    *index.get_unchecked(usize::from(b1 ^ QOI_OP_INDEX))
                 };
-            }
-            15 => {
-                // QOI_COLOR
-                if b1 & 8 != 0 {
-                    px.set_r(buf.read());
-                }
-                if b1 & 4 != 0 {
-                    px.set_g(buf.read());
-                }
-                if b1 & 2 != 0 {
-                    px.set_b(buf.read());
-                }
-                if b1 & 1 != 0 {
-                    px.set_a(buf.read());
-                }
-            }
-            12..=13 => {
-                // QOI_DIFF_16
-                let b2 = buf.read();
-                px.rgb_add(
-                    (b1 & 0x1f).wrapping_sub(16),
-                    (b2 >> 4).wrapping_sub(8),
-                    (b2 & 0x0f).wrapping_sub(8),
-                );
-            }
-            14 => {
-                // QOI_DIFF_24
-                let (b2, b3) = (buf.read(), buf.read());
-                px.rgba_add(
-                    (((b1 & 0x0f) << 1) | (b2 >> 7)).wrapping_sub(16),
-                    ((b2 & 0x7c) >> 2).wrapping_sub(16),
-                    (((b2 & 0x03) << 3) | ((b3 & 0xe0) >> 5)).wrapping_sub(16),
-                    (b3 & 0x1f).wrapping_sub(16),
-                );
-            }
-            4..=5 => {
-                // QOI_RUN_8
-                run = u16::from(b1 & 0x1f);
                 *px_out = px;
                 continue;
             }
-            8..=11 => {
-                // QOI_DIFF_8
+            QOI_OP_RGB => {
+                px = Pixel::from_rgb(Pixel::from_array(buf.read_array::<3>()), px.a_or(0xff));
+            }
+            QOI_OP_RGBA => {
+                px = Pixel::from_array(buf.read_array::<4>());
+            }
+            b1 @ QOI_OP_RUN..=QOI_OP_RUN_END => {
+                run = b1 & 0x3f;
+                *px_out = px;
+                continue;
+            }
+            b1 @ QOI_OP_DIFF..=QOI_OP_DIFF_END => {
                 px.rgb_add(
                     ((b1 >> 4) & 0x03).wrapping_sub(2),
                     ((b1 >> 2) & 0x03).wrapping_sub(2),
                     (b1 & 0x03).wrapping_sub(2),
                 );
             }
-            6..=7 => {
-                // QOI_RUN_16
-                run = 32 + ((u16::from(b1 & 0x1f) << 8) | u16::from(buf.read()));
-                *px_out = px;
-                continue;
+            b1 @ QOI_OP_LUMA..=QOI_OP_LUMA_END => {
+                let b2 = buf.read();
+                let vg = (b1 & 0x3f).wrapping_sub(32);
+                let vg_8 = vg.wrapping_sub(8);
+                let vr = vg_8.wrapping_add((b2 >> 4) & 0x0f);
+                let vb = vg_8.wrapping_add(b2 & 0x0f);
+                px.rgb_add(vr, vg, vb);
             }
-            _ => {
-                unsafe {
-                    // the compiler should figure it out on its own, but just in case
-                    core::hint::unreachable_unchecked()
-                }
-            }
-        }
+        };
 
         unsafe {
             // Safety: hash_index() is computed mod 64, so it will never go out of bounds
             *index.get_unchecked_mut(usize::from(px.hash_index())) = px;
         }
-
         *px_out = px;
     }
 
