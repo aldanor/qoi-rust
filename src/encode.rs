@@ -3,7 +3,7 @@ use std::slice;
 use crate::colorspace::ColorSpace;
 use crate::consts::{
     QOI_COLOR, QOI_DIFF_16, QOI_DIFF_24, QOI_DIFF_8, QOI_HEADER_SIZE, QOI_INDEX, QOI_PADDING,
-    QOI_PIXELS_MAX, QOI_RUN_16, QOI_RUN_8,
+    QOI_PADDING_SIZE, QOI_PIXELS_MAX, QOI_RUN_16, QOI_RUN_8,
 };
 use crate::error::{Error, Result};
 use crate::header::Header;
@@ -220,7 +220,7 @@ where
         }
     }
 
-    buf.write([0; QOI_PADDING]);
+    buf.write(QOI_PADDING);
     Ok(buf.len())
 }
 
@@ -253,7 +253,7 @@ pub fn encode_to_vec_impl<const CANONICAL: bool>(
 pub fn encode_size_required(width: u32, height: u32, channels: u8) -> usize {
     let (width, height) = (width as usize, height as usize);
     let n_pixels = width.saturating_mul(height);
-    QOI_HEADER_SIZE + n_pixels.saturating_mul(usize::from(channels)) + n_pixels + QOI_PADDING
+    QOI_HEADER_SIZE + n_pixels.saturating_mul(usize::from(channels)) + n_pixels + QOI_PADDING_SIZE
 }
 
 #[inline]

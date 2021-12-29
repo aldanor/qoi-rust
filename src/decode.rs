@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::consts::{QOI_HEADER_SIZE, QOI_INDEX, QOI_PADDING};
+use crate::consts::{QOI_HEADER_SIZE, QOI_INDEX, QOI_PADDING, QOI_PADDING_SIZE};
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
@@ -35,10 +35,10 @@ pub fn qoi_decode_impl<const N: usize>(data: &[u8], n_pixels: usize) -> Result<V
 where
     Pixel<N>: SupportedChannels,
 {
-    if unlikely(data.len() < QOI_HEADER_SIZE + QOI_PADDING) {
+    if unlikely(data.len() < QOI_HEADER_SIZE + QOI_PADDING_SIZE) {
         return Err(Error::InputBufferTooSmall {
             size: data.len(),
-            required: QOI_HEADER_SIZE + QOI_PADDING,
+            required: QOI_HEADER_SIZE + QOI_PADDING_SIZE,
         });
     }
 
@@ -47,7 +47,7 @@ where
         // Safety: we have just allocated enough memory to set the length without problems
         pixels.set_len(n_pixels);
     }
-    let encoded_data_size = data.len() - QOI_HEADER_SIZE - QOI_PADDING;
+    let encoded_data_size = data.len() - QOI_HEADER_SIZE - QOI_PADDING_SIZE;
     let mut buf = unsafe {
         // Safety: we will check within the loop that there are no reads outside the slice
         ReadBuf::new(data.as_ptr().add(QOI_HEADER_SIZE), encoded_data_size)
