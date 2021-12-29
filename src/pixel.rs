@@ -42,7 +42,7 @@ impl<const N: usize> Pixel<N> {
 
     #[inline]
     pub const fn hash_index(self) -> u8 {
-        (self.r() ^ self.g() ^ self.b() ^ self.a_or(0xff)) % 64
+        (self.r() * 3 + self.g() * 5 + self.b() * 7 + self.a_or(0xff) * 11) % 64
     }
 
     #[inline]
