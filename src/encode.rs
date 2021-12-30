@@ -1,5 +1,3 @@
-use std::slice;
-
 use crate::colorspace::ColorSpace;
 use crate::consts::{
     QOI_HEADER_SIZE, QOI_OP_DIFF, QOI_OP_INDEX, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA, QOI_OP_RUN,
@@ -8,42 +6,38 @@ use crate::consts::{
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
-use crate::utils::unlikely;
+use crate::utils::{cold, unlikely};
 
-struct WriteBuf {
-    start: *const u8,
-    current: *mut u8,
+struct WriteBuf<'a> {
+    buf: &'a mut [u8],
 }
 
-impl WriteBuf {
-    pub const unsafe fn new(ptr: *mut u8) -> Self {
-        Self { start: ptr, current: ptr }
+impl<'a> WriteBuf<'a> {
+    pub fn new(buf: &'a mut [u8]) -> Self {
+        Self { buf }
     }
 
     #[inline]
-    pub fn write<const N: usize>(&mut self, v: [u8; N]) {
-        unsafe {
-            // TODO: single write via deref?
-            let mut i = 0;
-            while i < N {
-                self.current.add(i).write(v[i]);
-                i += 1;
-            }
-            self.current = self.current.add(N);
-        }
+    pub fn write<const N: usize>(self, v: [u8; N]) -> Self {
+        let (head, tail) = self.buf.split_at_mut(N);
+        head.copy_from_slice(&v);
+        Self { buf: tail }
     }
 
     #[inline]
-    pub fn push(&mut self, v: u8) {
-        unsafe {
-            self.current.write(v);
-            self.current = self.current.add(1);
+    pub fn push(self, v: u8) -> Self {
+        if let Some((first, tail)) = self.buf.split_first_mut() {
+            *first = v;
+            Self { buf: tail }
+        } else {
+            cold();
+            panic!();
         }
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        unsafe { self.current.offset_from(self.start).max(0) as usize }
+        self.buf.len()
     }
 }
 
@@ -67,46 +61,38 @@ where
         return Err(Error::BadEncodingDataSize { size: data.len(), expected: n_pixels * CHANNELS });
     }
 
-    let pixels = unsafe {
-        // Safety: we've verified that n_pixels * N == data.len()
-        slice::from_raw_parts::<Pixel<CHANNELS>>(data.as_ptr().cast(), n_pixels)
-    };
-
-    let mut buf = unsafe {
-        // Safety: all write ops are guaranteed to not go outside allocation
-        WriteBuf::new(out.as_mut_ptr())
-    };
+    let out_size = out.len();
+    let mut buf = WriteBuf::new(out);
 
     let header =
         Header { width, height, channels: CHANNELS as u8, colorspace, ..Header::default() };
-    buf.write(header.to_bytes());
+    buf = buf.write(header.to_bytes());
 
-    let mut index = [Pixel::new(); 64];
+    let mut index = [Pixel::new(); 256];
     let mut px_prev = Pixel::new().with_a(0xff);
     let mut run = 0_u8;
+    let mut px = Pixel::<CHANNELS>::new().with_a(0xff);
 
-    for (i, &px) in pixels.iter().enumerate() {
+    for (i, chunk) in data.chunks_exact(CHANNELS).enumerate() {
+        px.read(chunk);
         if px == px_prev {
             run += 1;
             if run == 62 || unlikely(i == n_pixels - 1) {
-                buf.push(QOI_OP_RUN | (run - 1));
+                buf = buf.push(QOI_OP_RUN | (run - 1));
                 run = 0;
             }
         } else {
             if run != 0 {
-                buf.push(QOI_OP_RUN | (run - 1));
+                buf = buf.push(QOI_OP_RUN | (run - 1));
                 run = 0;
             }
             let index_pos = px.hash_index();
-            let index_px = unsafe {
-                // Safety: hash_index() is computed mod 64, so it will never go out of bounds
-                index.get_unchecked_mut(usize::from(index_pos))
-            };
-            let px4 = px.as_rgba(0xff);
-            if *index_px == px4 {
-                buf.push(QOI_OP_INDEX | index_pos);
+            let index_px = &mut index[usize::from(index_pos)];
+            let px_rgba = px.as_rgba(0xff);
+            if *index_px == px_rgba {
+                buf = buf.push(QOI_OP_INDEX | index_pos);
             } else {
-                *index_px = px4;
+                *index_px = px_rgba;
 
                 if px.a_or(0) == px_prev.a_or(0) {
                     let vr = px.r().wrapping_sub(px_prev.r());
@@ -120,27 +106,26 @@ where
                     let (vr_2, vg_2, vb_2) =
                         (vr.wrapping_add(2), vg.wrapping_add(2), vb.wrapping_add(2));
                     if vr_2 | vg_2 | vb_2 | 3 == 3 {
-                        buf.push(QOI_OP_DIFF | vr_2 << 4 | vg_2 << 2 | vb_2);
+                        buf = buf.push(QOI_OP_DIFF | vr_2 << 4 | vg_2 << 2 | vb_2);
                     } else {
                         let (vg_32, vg_r_8, vg_b_8) =
                             (vg.wrapping_add(32), vg_r.wrapping_add(8), vg_b.wrapping_add(8));
                         if vg_r_8 | vg_b_8 | 15 == 15 && vg_32 | 63 == 63 {
-                            buf.write([QOI_OP_LUMA | vg_32, vg_r_8 << 4 | vg_b_8]);
+                            buf = buf.write([QOI_OP_LUMA | vg_32, vg_r_8 << 4 | vg_b_8]);
                         } else {
-                            buf.write([QOI_OP_RGB, px.r(), px.g(), px.b()]);
+                            buf = buf.write([QOI_OP_RGB, px.r(), px.g(), px.b()]);
                         }
                     }
                 } else {
-                    // TODO: or 2 write ops? (QOI_OP_RGBA and px.into_array())
-                    buf.write([QOI_OP_RGBA, px.r(), px.g(), px.b(), px.a_or(0xff)]);
+                    buf = buf.write([QOI_OP_RGBA, px.r(), px.g(), px.b(), px.a_or(0xff)]);
                 }
             }
             px_prev = px;
         }
     }
 
-    buf.write(QOI_PADDING);
-    Ok(buf.len())
+    buf = buf.write(QOI_PADDING);
+    Ok(out_size.saturating_sub(buf.len()))
 }
 
 #[inline]
@@ -165,10 +150,8 @@ pub fn qoi_encode_to_vec(
 ) -> Result<Vec<u8>> {
     let data = data.as_ref();
     let colorspace = colorspace.into();
-    let mut out = Vec::with_capacity(encode_size_required(width, height, channels));
-    unsafe {
-        out.set_len(out.capacity());
-    }
+    let size = encode_size_required(width, height, channels);
+    let mut out = vec![0; size]; // note: we could save time here but that won't be safe anymore
     let size = qoi_encode_to_buf(&mut out, data, width, height, channels, colorspace)?;
     out.truncate(size);
     Ok(out)
