@@ -15,6 +15,9 @@ exclude = [
     "assets/*",
 ]
 
+[dependencies]
+bytemuck = "1.7"
+
 [workspace]
 members = ["qoi-bench"]
 

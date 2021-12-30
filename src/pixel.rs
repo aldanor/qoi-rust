@@ -102,6 +102,13 @@ impl<const N: usize> Pixel<N> {
     }
 }
 
+impl<const N: usize> From<Pixel<N>> for [u8; N] {
+    #[inline(always)]
+    fn from(px: Pixel<N>) -> Self {
+        px.0
+    }
+}
+
 pub trait SupportedChannels {}
 
 impl SupportedChannels for Pixel<3> {}
