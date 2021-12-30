@@ -250,7 +250,12 @@ impl ImageBench {
         let encoded = encoded?;
         let (decoded, t_decode) = timeit(|| C::decode(&encoded, img));
         let decoded = decoded?;
-        ensure!(decoded.as_slice() == img.data.as_slice(), "decoded data doesn't roundtrip");
+        assert_eq!(
+            decoded.as_slice(),
+            img.data.as_slice(),
+            "{}: decoded data doesn't roundtrip",
+            C::name()
+        );
 
         let n_encode = (sec_allowed / 2. / t_encode.as_secs_f64()).max(2.).ceil() as usize;
         let mut encode_tm = Vec::with_capacity(n_encode);
