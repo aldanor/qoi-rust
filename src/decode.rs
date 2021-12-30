@@ -10,7 +10,9 @@ use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
 use crate::utils::{cold, unlikely};
 
-pub fn qoi_decode_impl<const N: usize>(data: &[u8], n_pixels: usize) -> Result<Vec<u8>>
+pub fn qoi_decode_impl<const N: usize, const RGBA: bool>(
+    data: &[u8], n_pixels: usize,
+) -> Result<Vec<u8>>
 where
     Pixel<N>: SupportedChannels,
     [u8; N]: Pod,
@@ -49,10 +51,7 @@ where
                         px = Pixel::from_rgb(Pixel::from_array([*r, *g, *b]), px.a_or(0xff));
                         data = dtail;
                     }
-                    [QOI_OP_RGBA, r, g, b, a, dtail @ ..] => {
-                        if N == 4 {
-                            cold();
-                        }
+                    [QOI_OP_RGBA, r, g, b, a, dtail @ ..] if RGBA => {
                         px = Pixel::from_array([*r, *g, *b, *a]);
                         data = dtail;
                     }
@@ -127,9 +126,11 @@ pub fn qoi_decode_to_vec(
     let header = qoi_decode_header(data)?;
     header.validate()?;
     let channels = channels.maybe_channels().unwrap_or(header.channels);
-    match channels {
-        3 => Ok((header, qoi_decode_impl::<3>(data, header.n_pixels())?)),
-        4 => Ok((header, qoi_decode_impl::<4>(data, header.n_pixels())?)),
+    match (channels, header.channels) {
+        (3, 3) => Ok((header, qoi_decode_impl::<3, false>(data, header.n_pixels())?)),
+        (3, 4) => Ok((header, qoi_decode_impl::<3, true>(data, header.n_pixels())?)),
+        (4, 3) => Ok((header, qoi_decode_impl::<4, false>(data, header.n_pixels())?)),
+        (4, 4) => Ok((header, qoi_decode_impl::<4, true>(data, header.n_pixels())?)),
         _ => Err(Error::InvalidChannels { channels }),
     }
 }
