@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::ptr;
@@ -70,6 +71,7 @@ fn find_pngs(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
     Ok(out)
 }
 
+#[derive(Clone)]
 struct Image {
     pub width: u32,
     pub height: u32,
@@ -202,53 +204,71 @@ impl Codec for CodecQoiC {
     }
 }
 
+#[derive(Clone)]
 struct BenchResult {
     pub codec: String,
-    pub encode_sec: Vec<f64>,
     pub decode_sec: Vec<f64>,
-    pub size_encoded: usize,
+    pub encode_sec: Vec<f64>,
 }
 
+impl BenchResult {
+    pub fn new(codec: impl AsRef<str>, mut decode_sec: Vec<f64>, mut encode_sec: Vec<f64>) -> Self {
+        decode_sec.sort_by(|a, b| a.partial_cmp(&b).unwrap_or(Ordering::Equal));
+        encode_sec.sort_by(|a, b| a.partial_cmp(&b).unwrap_or(Ordering::Equal));
+        let codec = codec.as_ref().into();
+        Self { codec, decode_sec, encode_sec }
+    }
+
+    pub fn average_decode_sec(&self, use_median: bool) -> f64 {
+        if use_median {
+            self.decode_sec[self.decode_sec.len() / 2]
+        } else {
+            mean(&self.decode_sec)
+        }
+    }
+
+    pub fn average_encode_sec(&self, use_median: bool) -> f64 {
+        if use_median {
+            self.encode_sec[self.encode_sec.len() / 2]
+        } else {
+            mean(&self.encode_sec)
+        }
+    }
+}
+
+#[derive(Clone)]
 struct ImageBench {
-    img: Image,
-    sec_allowed: f64,
     results: Vec<BenchResult>,
+    n_pixels: usize,
 }
 
 impl ImageBench {
-    pub fn new(img: Image, sec_allowed: f64) -> Self {
-        Self { img, sec_allowed, results: vec![] }
+    pub fn new(img: &Image) -> Self {
+        Self { results: vec![], n_pixels: img.n_pixels() }
     }
 
-    pub fn run<C: Codec>(&mut self) -> Result<()> {
-        let (encoded, t_encode) = timeit(|| C::encode(&self.img));
+    pub fn run<C: Codec>(&mut self, img: &Image, sec_allowed: f64) -> Result<()> {
+        let (encoded, t_encode) = timeit(|| C::encode(img));
         let encoded = encoded?;
-        let (decoded, t_decode) = timeit(|| C::decode(&encoded, &self.img));
+        let (decoded, t_decode) = timeit(|| C::decode(&encoded, img));
         let decoded = decoded?;
-        ensure!(decoded.as_slice() == self.img.data.as_slice(), "decoded data doesn't roundtrip");
+        ensure!(decoded.as_slice() == img.data.as_slice(), "decoded data doesn't roundtrip");
 
-        let n_encode = (self.sec_allowed / 2. / t_encode.as_secs_f64()).max(2.).ceil() as usize;
+        let n_encode = (sec_allowed / 2. / t_encode.as_secs_f64()).max(2.).ceil() as usize;
         let mut encode_tm = Vec::with_capacity(n_encode);
         for _ in 0..n_encode {
-            encode_tm.push(timeit(|| C::encode_bench(&self.img)).1);
+            encode_tm.push(timeit(|| C::encode_bench(img)).1);
         }
-        encode_tm.sort_unstable();
         let encode_sec = encode_tm.iter().map(Duration::as_secs_f64).collect();
 
-        let n_decode = (self.sec_allowed / 2. / t_decode.as_secs_f64()).max(2.).ceil() as usize;
+        let n_decode = (sec_allowed / 2. / t_decode.as_secs_f64()).max(2.).ceil() as usize;
         let mut decode_tm = Vec::with_capacity(n_decode);
         for _ in 0..n_decode {
-            decode_tm.push(timeit(|| C::decode_bench(&encoded, &self.img)).1);
+            decode_tm.push(timeit(|| C::decode_bench(&encoded, img)).1);
         }
-        decode_tm.sort_unstable();
         let decode_sec = decode_tm.iter().map(Duration::as_secs_f64).collect();
 
-        self.results.push(BenchResult {
-            codec: C::name().to_owned(),
-            encode_sec,
-            decode_sec,
-            size_encoded: encoded.len(),
-        });
+        self.results.push(BenchResult::new(C::name(), decode_sec, encode_sec));
         Ok(())
     }
 
@@ -259,33 +279,85 @@ impl ImageBench {
         print!("{:>w$}", "encode:ms", w = w_col);
         print!("{:>w$}", "decode:mp/s", w = w_col);
         print!("{:>w$}", "encode:mp/s", w = w_col);
-        print!("{:>w$}", "compression", w = w_col);
-        print!("{:>w$}", "output:kb", w = w_col);
         println!();
         for r in &self.results {
-            let (decode_sec, encode_sec) = if use_median {
-                (r.decode_sec[r.decode_sec.len() / 2], r.encode_sec[r.encode_sec.len() / 2])
-            } else {
-                (mean(&r.decode_sec), mean(&r.encode_sec))
-            };
-            let mpixels = self.img.n_pixels() as f64 / 1e6;
+            let decode_sec = r.average_decode_sec(use_median);
+            let encode_sec = r.average_encode_sec(use_median);
+            let mpixels = self.n_pixels as f64 / 1e6;
             let (decode_mpps, encode_mpps) = (mpixels / decode_sec, mpixels / encode_sec);
-            let comp_ratio_pct = r.size_encoded as f64 / self.img.data.len() as f64 * 1e2;
-            let size_kb = r.size_encoded as f64 / 1024.;
 
             print!("{:<w$}", r.codec, w = w_name);
             print!("{:>w$.2}", decode_sec * 1e3, w = w_col);
             print!("{:>w$.2}", encode_sec * 1e3, w = w_col);
             print!("{:>w$.1}", decode_mpps, w = w_col);
             print!("{:>w$.1}", encode_mpps, w = w_col);
-            print!("{:>w$.2}%", comp_ratio_pct, w = w_col - 1);
-            print!("{:>w$.1}", size_kb, w = w_col);
             println!();
         }
     }
 }
 
-fn bench_png(filename: &Path) -> Result<()> {
+#[derive(Default)]
+struct BenchTotals {
+    results: Vec<ImageBench>,
+}
+
+impl BenchTotals {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn update(&mut self, b: &ImageBench) {
+        self.results.push(b.clone())
+    }
+
+    pub fn report(&self, use_median: bool) {
+        if self.results.is_empty() {
+            return;
+        }
+        let codec_names: Vec<_> = self.results[0].results.iter().map(|r| r.codec.clone()).collect();
+        let n_codecs = codec_names.len();
+        let (mut total_decode_sec, mut total_encode_sec, mut total_size) =
+            (vec![0.; n_codecs], vec![0.; n_codecs], 0);
+        for r in &self.results {
+            total_size += r.n_pixels;
+            for i in 0..n_codecs {
+                // sum of medians is not the median of sums, but w/e, good enough here
+                total_decode_sec[i] += r.results[i].average_decode_sec(use_median);
+                total_encode_sec[i] += r.results[i].average_encode_sec(use_median);
+            }
+        }
+
+        let (w_name, w_col) = (11, 13);
+        println!("---");
+        println!(
+            "Overall results: ({} images, {:.1} MB):",
+            self.results.len(),
+            total_size as f64 / 1024. / 1024.
+        );
+        println!("---");
+        print!("{:<w$}", "codec", w = w_name);
+        print!("{:>w$}", "decode:ms", w = w_col);
+        print!("{:>w$}", "encode:ms", w = w_col);
+        print!("{:>w$}", "decode:mp/s", w = w_col);
+        print!("{:>w$}", "encode:mp/s", w = w_col);
+        println!();
+        for (i, codec_name) in codec_names.iter().enumerate() {
+            let decode_sec = total_decode_sec[i];
+            let encode_sec = total_encode_sec[i];
+            let mpixels = total_size as f64 / 1e6;
+            let (decode_mpps, encode_mpps) = (mpixels / decode_sec, mpixels / encode_sec);
+
+            print!("{:<w$}", codec_name, w = w_name);
+            print!("{:>w$.2}", decode_sec * 1e3, w = w_col);
+            print!("{:>w$.2}", encode_sec * 1e3, w = w_col);
+            print!("{:>w$.1}", decode_mpps, w = w_col);
+            print!("{:>w$.1}", encode_mpps, w = w_col);
+            println!();
+        }
+    }
+}
+
+fn bench_png(filename: &Path, seconds: f64, use_median: bool) -> Result<ImageBench> {
     let f = filename.to_string_lossy();
     let img = read_png(filename).context(format!("error reading PNG file: {}", f))?;
     let size_kb = fs::metadata(filename)?.len() / 1024;
@@ -294,17 +366,33 @@ fn bench_png(filename: &Path) -> Result<()> {
         "{} ({}x{}:{}, {} KB, {:.1}MP)",
         f, img.width, img.height, img.channels, size_kb, mpixels
     );
-    let mut bench = ImageBench::new(img, 5.);
-    bench.run::<CodecQoiC>()?;
-    bench.run::<CodecQoiFast>()?;
-    bench.report(true);
+    let mut bench = ImageBench::new(&img);
+    bench.run::<CodecQoiC>(&img, seconds)?;
+    bench.run::<CodecQoiFast>(&img, seconds)?;
+    bench.report(use_median);
+    Ok(bench)
+}
+
+fn bench_suite(files: &[PathBuf], seconds: f64, use_median: bool) -> Result<()> {
+    let mut totals = BenchTotals::new();
+    for file in files {
+        totals.update(&bench_png(file, seconds, use_median)?);
+    }
+    totals.report(use_median);
     Ok(())
 }
 
 #[derive(Debug, StructOpt)]
 struct Args {
+    /// Files or directories containing png images.
     #[structopt(parse(from_os_str))]
     paths: Vec<PathBuf>,
+    /// Number of seconds allocated for each image/codec.
+    #[structopt(short, long, default_value = "1")]
+    seconds: f64,
+    /// Use average (mean) instead of the median.
+    #[structopt(short, long)]
+    average: bool,
 }
 
 fn main() -> Result<()> {
@@ -312,8 +400,6 @@ fn main() -> Result<()> {
     ensure!(!args.paths.is_empty(), "no input paths given");
     let files = find_pngs(&args.paths)?;
     ensure!(!files.is_empty(), "no PNG files found in given paths");
-    for file in &files {
-        bench_png(file)?;
-    }
+    bench_suite(&files, args.seconds, !args.average)?;
     Ok(())
 }
