@@ -91,12 +91,9 @@ fn read_png(filename: &Path) -> Result<Image> {
     let mut buf = vec![0; reader.output_buffer_size()];
     let info = reader.next_frame(&mut buf)?;
     let bytes = &buf[..info.buffer_size()];
-    Ok(Image {
-        width: info.width,
-        height: info.height,
-        channels: info.color_type.samples() as u8,
-        data: bytes.to_vec(),
-    })
+    let channels = info.color_type.samples() as u8;
+    ensure!(channels == 3 || channels == 4, "invalid channels: {}", channels);
+    Ok(Image { width: info.width, height: info.height, channels, data: bytes.to_vec() })
 }
 
 trait Codec {
