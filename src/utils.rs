@@ -6,7 +6,7 @@ pub const fn cold() {}
 #[allow(unused)]
 pub const fn likely(b: bool) -> bool {
     if !b {
-        cold()
+        cold();
     }
     b
 }
@@ -14,7 +14,7 @@ pub const fn likely(b: bool) -> bool {
 #[inline(always)]
 pub const fn unlikely(b: bool) -> bool {
     if b {
-        cold()
+        cold();
     }
     b
 }

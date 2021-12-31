@@ -26,6 +26,7 @@ impl Default for Header {
 }
 
 #[inline(always)]
+#[allow(clippy::cast_possible_truncation)]
 const fn u32_to_be(v: u32) -> [u8; 4] {
     [
         ((0xff00_0000 & v) >> 24) as u8,
@@ -47,7 +48,7 @@ impl Header {
     }
 
     #[inline]
-    pub fn with_colorspace(mut self, colorspace: ColorSpace) -> Self {
+    pub const fn with_colorspace(mut self, colorspace: ColorSpace) -> Self {
         self.colorspace = colorspace;
         self
     }

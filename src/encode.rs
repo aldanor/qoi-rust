@@ -38,11 +38,12 @@ impl<'a> WriteBuf<'a> {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.buf.len()
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn qoi_encode_impl<const CHANNELS: usize>(
     out: &mut [u8], data: &[u8], width: u32, height: u32, colorspace: ColorSpace,
 ) -> Result<usize>

@@ -35,7 +35,7 @@ impl Default for ColorSpace {
 impl From<ColorSpace> for u8 {
     #[inline]
     fn from(colorspace: ColorSpace) -> Self {
-        colorspace as u8
+        colorspace as Self
     }
 }
 

@@ -210,8 +210,8 @@ struct BenchResult {
 
 impl BenchResult {
     pub fn new(codec: impl AsRef<str>, mut decode_sec: Vec<f64>, mut encode_sec: Vec<f64>) -> Self {
-        decode_sec.sort_by(|a, b| a.partial_cmp(&b).unwrap_or(Ordering::Equal));
-        encode_sec.sort_by(|a, b| a.partial_cmp(&b).unwrap_or(Ordering::Equal));
+        decode_sec.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+        encode_sec.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
         let codec = codec.as_ref().into();
         Self { codec, decode_sec, encode_sec }
     }
