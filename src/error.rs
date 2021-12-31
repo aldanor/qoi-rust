@@ -1,3 +1,4 @@
+use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::fmt::{self, Display};
 use std::result::Result as StdResult;
@@ -52,3 +53,9 @@ impl Display for Error {
 }
 
 impl StdError for Error {}
+
+impl From<Infallible> for Error {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
+}
