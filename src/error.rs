@@ -15,7 +15,7 @@ pub enum Error {
     OutputBufferTooSmall { size: usize, required: usize },
     InvalidMagic { magic: u32 },
     UnexpectedBufferEnd,
-    // TODO: invalid colorspace
+    InvalidColorSpace { colorspace: u8 },
 }
 
 pub type Result<T> = StdResult<T, Error>;
@@ -47,6 +47,9 @@ impl Display for Error {
             }
             Self::UnexpectedBufferEnd => {
                 write!(f, "unexpected input buffer end while decoding")
+            }
+            Self::InvalidColorSpace { colorspace } => {
+                write!(f, "invalid color space: {} (expected 0 or 1)", colorspace)
             }
         }
     }

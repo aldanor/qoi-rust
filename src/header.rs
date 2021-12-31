@@ -43,12 +43,12 @@ const fn u32_from_be(v: &[u8]) -> u32 {
 impl Header {
     #[inline]
     pub const fn new(width: u32, height: u32, channels: u8) -> Self {
-        Self { magic: QOI_MAGIC, width, height, channels, colorspace: ColorSpace::from_u8(0) }
+        Self { magic: QOI_MAGIC, width, height, channels, colorspace: ColorSpace::Srgb }
     }
 
     #[inline]
-    pub fn with_colorspace(mut self, colorspace: impl Into<ColorSpace>) -> Self {
-        self.colorspace = colorspace.into();
+    pub fn with_colorspace(mut self, colorspace: ColorSpace) -> Self {
+        self.colorspace = colorspace;
         self
     }
 
@@ -58,7 +58,7 @@ impl Header {
     }
 
     #[inline]
-    pub(crate) fn to_bytes(&self) -> [u8; QOI_HEADER_SIZE] {
+    pub(crate) fn encode(&self) -> [u8; QOI_HEADER_SIZE] {
         let mut out = [0; QOI_HEADER_SIZE];
         out[..4].copy_from_slice(&u32_to_be(self.magic));
         out[4..8].copy_from_slice(&u32_to_be(self.width));
@@ -69,32 +69,30 @@ impl Header {
     }
 
     #[inline]
-    pub(crate) fn from_bytes(v: [u8; QOI_HEADER_SIZE]) -> Self {
-        Self {
-            magic: u32_from_be(&v[..4]),
-            width: u32_from_be(&v[4..8]),
-            height: u32_from_be(&v[8..12]),
-            channels: v[12],
-            colorspace: v[13].into(),
+    pub(crate) fn decode(data: impl AsRef<[u8]>) -> Result<Self> {
+        let data = data.as_ref();
+        if unlikely(data.len() < QOI_HEADER_SIZE) {
+            return Err(Error::InputBufferTooSmall { size: data.len(), required: QOI_HEADER_SIZE });
         }
+        let magic = u32_from_be(&data[..4]);
+        let width = u32_from_be(&data[4..8]);
+        let height = u32_from_be(&data[8..12]);
+        let channels = data[12];
+        let colorspace = ColorSpace::try_from(data[13])?;
+        if unlikely(magic != QOI_MAGIC) {
+            return Err(Error::InvalidMagic { magic });
+        } else if unlikely(height == 0 || width == 0) {
+            return Err(Error::EmptyImage { width, height });
+        } else if unlikely((width as usize) * (height as usize) > QOI_PIXELS_MAX) {
+            return Err(Error::ImageTooLarge { width, height });
+        } else if unlikely(channels != 3 && channels != 4) {
+            return Err(Error::InvalidChannels { channels });
+        }
+        Ok(Self { magic, width, height, channels, colorspace })
     }
 
     #[inline]
     pub const fn n_pixels(&self) -> usize {
         (self.width as usize).saturating_mul(self.height as usize)
-    }
-
-    #[inline]
-    pub const fn validate(&self) -> Result<()> {
-        if unlikely(self.magic != QOI_MAGIC) {
-            return Err(Error::InvalidMagic { magic: self.magic });
-        } else if unlikely(self.height == 0 || self.width == 0) {
-            return Err(Error::EmptyImage { width: self.width, height: self.height });
-        } else if unlikely((self.height as usize) * (self.width as usize) > QOI_PIXELS_MAX) {
-            return Err(Error::ImageTooLarge { width: self.width, height: self.height });
-        } else if unlikely(self.channels < 3 || self.channels > 4) {
-            return Err(Error::InvalidChannels { channels: self.channels });
-        }
-        Ok(())
     }
 }

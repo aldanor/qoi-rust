@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::colorspace::ColorSpace;
 use crate::consts::{
     QOI_HEADER_SIZE, QOI_OP_DIFF, QOI_OP_INDEX, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA, QOI_OP_RUN,
@@ -66,7 +68,7 @@ where
 
     let header =
         Header { width, height, channels: CHANNELS as u8, colorspace, ..Header::default() };
-    buf = buf.write(header.to_bytes());
+    buf = buf.write(header.encode());
 
     let mut index = [Pixel::new(); 256];
     let mut px_prev = Pixel::new().with_a(0xff);
@@ -129,13 +131,18 @@ where
 }
 
 #[inline]
-pub fn qoi_encode_to_buf(
-    mut out: impl AsMut<[u8]>, data: impl AsRef<[u8]>, width: u32, height: u32, channels: u8,
-    colorspace: impl Into<ColorSpace>,
-) -> Result<usize> {
+pub fn qoi_encode_to_buf<O, D, C>(
+    mut out: O, data: D, width: u32, height: u32, channels: u8, colorspace: C,
+) -> Result<usize>
+where
+    O: AsMut<[u8]>,
+    D: AsRef<[u8]>,
+    C: TryInto<ColorSpace>,
+    Error: From<C::Error>,
+{
     let out = out.as_mut();
     let data = data.as_ref();
-    let colorspace = colorspace.into();
+    let colorspace = colorspace.try_into()?;
     match channels {
         3 => qoi_encode_impl::<3>(out, data, width, height, colorspace),
         4 => qoi_encode_impl::<4>(out, data, width, height, colorspace),
@@ -144,12 +151,14 @@ pub fn qoi_encode_to_buf(
 }
 
 #[inline]
-pub fn qoi_encode_to_vec(
-    data: impl AsRef<[u8]>, width: u32, height: u32, channels: u8,
-    colorspace: impl Into<ColorSpace>,
-) -> Result<Vec<u8>> {
-    let data = data.as_ref();
-    let colorspace = colorspace.into();
+pub fn qoi_encode_to_vec<D, C>(
+    data: D, width: u32, height: u32, channels: u8, colorspace: C,
+) -> Result<Vec<u8>>
+where
+    D: AsRef<[u8]>,
+    C: TryInto<ColorSpace>,
+    Error: From<C::Error>,
+{
     let size = encode_size_required(width, height, channels);
     let mut out = vec![0; size]; // note: we could save time here but that won't be safe anymore
     let size = qoi_encode_to_buf(&mut out, data, width, height, channels, colorspace)?;

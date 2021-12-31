@@ -123,8 +123,7 @@ pub fn qoi_decode_to_vec(
     data: impl AsRef<[u8]>, channels: impl MaybeChannels,
 ) -> Result<(Header, Vec<u8>)> {
     let data = data.as_ref();
-    let header = qoi_decode_header(data)?;
-    header.validate()?;
+    let header = Header::decode(data)?;
     let channels = channels.maybe_channels().unwrap_or(header.channels);
     match (channels, header.channels) {
         (3, 3) => Ok((header, qoi_decode_impl::<3, false>(data, header.n_pixels())?)),
@@ -137,11 +136,5 @@ pub fn qoi_decode_to_vec(
 
 #[inline]
 pub fn qoi_decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
-    let data = data.as_ref();
-    if unlikely(data.len() < QOI_HEADER_SIZE) {
-        return Err(Error::InputBufferTooSmall { size: data.len(), required: QOI_HEADER_SIZE });
-    }
-    let mut bytes = [0_u8; QOI_HEADER_SIZE];
-    bytes.copy_from_slice(&data[..QOI_HEADER_SIZE]);
-    Ok(Header::from_bytes(bytes))
+    Header::decode(data)
 }

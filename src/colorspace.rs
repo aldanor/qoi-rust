@@ -1,70 +1,53 @@
-use std::fmt::{self, Debug};
+use std::convert::TryFrom;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct ColorSpace {
-    pub r_linear: bool,
-    pub g_linear: bool,
-    pub b_linear: bool,
-    pub a_linear: bool,
+use crate::error::{Error, Result};
+use crate::utils::unlikely;
+
+/// Image color space.
+///
+/// Note: the color space is purely informative. Although it is saved to the
+/// file header, it does not affect encoding/decoding in any way.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[repr(u8)]
+pub enum ColorSpace {
+    /// sRGB with linear alpha
+    Srgb = 0,
+    /// All channels are linear
+    Linear = 1,
 }
 
 impl ColorSpace {
-    pub const SRGB: Self = Self::new(false, false, false, false);
-    pub const LINEAR: Self = Self::new(true, true, true, true);
-    pub const SRGB_LINEAR_ALPHA: Self = Self::new(false, false, false, true);
-
-    pub const fn new(r_linear: bool, g_linear: bool, b_linear: bool, a_linear: bool) -> Self {
-        Self { r_linear, g_linear, b_linear, a_linear }
-    }
-
     pub const fn is_srgb(self) -> bool {
-        !self.r_linear && !self.g_linear && !self.b_linear && !self.a_linear
+        matches!(self, Self::Srgb)
     }
 
     pub const fn is_linear(self) -> bool {
-        self.r_linear && self.g_linear && self.b_linear && self.a_linear
-    }
-
-    pub const fn is_srgb_linear_alpha(self) -> bool {
-        !self.r_linear && !self.g_linear && !self.b_linear && self.a_linear
-    }
-
-    pub const fn to_u8(self) -> u8 {
-        (self.r_linear as u8) << 3
-            | (self.g_linear as u8) << 2
-            | (self.b_linear as u8) << 1
-            | (self.a_linear as u8)
-    }
-
-    pub const fn from_u8(bits: u8) -> Self {
-        Self::new(bits & 0x08 != 0, bits & 0x04 != 0, bits & 0x02 != 0, bits & 0x01 != 0)
+        matches!(self, Self::Linear)
     }
 }
 
 impl Default for ColorSpace {
     fn default() -> Self {
-        Self::SRGB
-    }
-}
-
-impl From<u8> for ColorSpace {
-    fn from(value: u8) -> Self {
-        Self::from_u8(value)
+        Self::Srgb
     }
 }
 
 impl From<ColorSpace> for u8 {
-    fn from(value: ColorSpace) -> Self {
-        value.to_u8()
+    #[inline]
+    fn from(colorspace: ColorSpace) -> Self {
+        colorspace as u8
     }
 }
 
-impl Debug for ColorSpace {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "ColorSpace({}{}{}{})",
-            self.r_linear as u8, self.g_linear as u8, self.b_linear as u8, self.a_linear as u8
-        )
+impl TryFrom<u8> for ColorSpace {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(colorspace: u8) -> Result<Self> {
+        if unlikely(colorspace | 1 != 1) {
+            Err(Error::InvalidColorSpace { colorspace })
+        } else {
+            Ok(if colorspace == 0 { Self::Srgb } else { Self::Linear })
+        }
     }
 }
