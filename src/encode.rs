@@ -105,19 +105,23 @@ where
                     let vg_r = vr.wrapping_sub(vg);
                     let vg_b = vb.wrapping_sub(vg);
 
-                    // TODO maybe add an outer check for vg_32
-                    let (vr_2, vg_2, vb_2) =
-                        (vr.wrapping_add(2), vg.wrapping_add(2), vb.wrapping_add(2));
-                    if vr_2 | vg_2 | vb_2 | 3 == 3 {
-                        buf = buf.push(QOI_OP_DIFF | vr_2 << 4 | vg_2 << 2 | vb_2);
-                    } else {
-                        let (vg_32, vg_r_8, vg_b_8) =
-                            (vg.wrapping_add(32), vg_r.wrapping_add(8), vg_b.wrapping_add(8));
-                        if vg_r_8 | vg_b_8 | 15 == 15 && vg_32 | 63 == 63 {
-                            buf = buf.write([QOI_OP_LUMA | vg_32, vg_r_8 << 4 | vg_b_8]);
+                    let vg_32 = vg.wrapping_add(32);
+
+                    if vg_32 | 63 == 63 {
+                        let (vr_2, vg_2, vb_2) =
+                            (vr.wrapping_add(2), vg.wrapping_add(2), vb.wrapping_add(2));
+                        if vr_2 | vg_2 | vb_2 | 3 == 3 {
+                            buf = buf.push(QOI_OP_DIFF | vr_2 << 4 | vg_2 << 2 | vb_2);
                         } else {
-                            buf = buf.write([QOI_OP_RGB, px.r(), px.g(), px.b()]);
+                            let (vg_r_8, vg_b_8) = (vg_r.wrapping_add(8), vg_b.wrapping_add(8));
+                            if vg_r_8 | vg_b_8 | 15 == 15 {
+                                buf = buf.write([QOI_OP_LUMA | vg_32, vg_r_8 << 4 | vg_b_8]);
+                            } else {
+                                buf = buf.write([QOI_OP_RGB, px.r(), px.g(), px.b()]);
+                            }
                         }
+                    } else {
+                        buf = buf.write([QOI_OP_RGB, px.r(), px.g(), px.b()]);
                     }
                 } else {
                     buf = buf.write([QOI_OP_RGBA, px.r(), px.g(), px.b(), px.a_or(0xff)]);
