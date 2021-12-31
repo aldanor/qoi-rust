@@ -19,6 +19,7 @@ mod header;
 mod pixel;
 mod utils;
 
+#[doc(hidden)]
 pub mod consts;
 
 pub use crate::colorspace::ColorSpace;
