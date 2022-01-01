@@ -15,81 +15,104 @@ const QOI_OP_RUN_END: u8 = QOI_OP_RUN | 0x3d; // <- note, 0x3d (not 0x3f)
 const QOI_OP_DIFF_END: u8 = QOI_OP_DIFF | 0x3f;
 const QOI_OP_LUMA_END: u8 = QOI_OP_LUMA | 0x3f;
 
-pub fn qoi_decode_impl<const N: usize, const RGBA: bool>(
-    data: &[u8], n_pixels: usize,
-) -> Result<Vec<u8>>
+#[inline(always)]
+pub const fn hash_pixel<const N: usize>(px: [u8; N]) -> u8 {
+    let r = px[0].wrapping_mul(3);
+    let g = px[1].wrapping_mul(5);
+    let b = px[2].wrapping_mul(7);
+    let a = (if N == 4 { px[3] } else { 0xff }).wrapping_mul(11);
+    r.wrapping_add(g).wrapping_add(b).wrapping_add(a) & 0x3f
+}
+
+macro_rules! decode {
+    (rgb: $r:expr, $g:expr, $b:expr => $px:expr) => {
+        $px[0] = $r;
+        $px[1] = $g;
+        $px[2] = $b;
+    };
+    (diff: $b1:expr => $px:expr) => {
+        $px[0] = $px[0].wrapping_add(($b1 >> 4) & 0x03).wrapping_sub(2);
+        $px[1] = $px[1].wrapping_add(($b1 >> 2) & 0x03).wrapping_sub(2);
+        $px[2] = $px[2].wrapping_add($b1 & 0x03).wrapping_sub(2);
+    };
+    (luma: $b1:expr, $b2:expr => $px:expr) => {
+        let vg = ($b1 & 0x3f).wrapping_sub(32);
+        let vg_8 = vg.wrapping_sub(8);
+        let vr = vg_8.wrapping_add(($b2 >> 4) & 0x0f);
+        let vb = vg_8.wrapping_add($b2 & 0x0f);
+        $px[0] = $px[0].wrapping_add(vr);
+        $px[1] = $px[1].wrapping_add(vg);
+        $px[2] = $px[2].wrapping_add(vb);
+    };
+}
+
+#[inline]
+fn qoi_decode_impl_slice<const N: usize, const RGBA: bool>(
+    data: &[u8], out: &mut [u8],
+) -> Result<()>
 where
     Pixel<N>: SupportedChannels,
     [u8; N]: Pod,
 {
-    if unlikely(data.len() < QOI_HEADER_SIZE + QOI_PADDING_SIZE) {
-        return Err(Error::InputBufferTooSmall {
-            size: data.len(),
-            required: QOI_HEADER_SIZE + QOI_PADDING_SIZE,
-        });
+    let mut pixels = cast_slice_mut::<_, [u8; N]>(out);
+    let mut data = data;
+
+    let mut index = [[0_u8; N]; 256];
+    let mut px = [0_u8; N];
+    if N == 4 {
+        px[3] = 0xff;
     }
-
-    let mut out = vec![0; n_pixels * N]; // unnecessary zero-init, but w/e
-    let mut pixels = cast_slice_mut::<_, [u8; N]>(&mut out);
-    let mut data = &data[QOI_HEADER_SIZE..];
-
-    let mut index = [Pixel::<N>::new(); 256];
-    let mut px = Pixel::<N>::new().with_a(0xff);
 
     while let [px_out, ptail @ ..] = pixels {
         pixels = ptail;
         match data {
             [b1 @ QOI_OP_INDEX..=QOI_OP_INDEX_END, dtail @ ..] => {
-                px = index[usize::from(*b1)];
-                *px_out = px.into();
+                px = index[*b1 as usize];
+                *px_out = px;
                 data = dtail;
                 continue;
             }
             [QOI_OP_RGB, r, g, b, dtail @ ..] => {
-                px = Pixel::from_rgb(Pixel::from_array([*r, *g, *b]), px.a_or(0xff));
+                decode!(rgb: *r, *g, *b => px);
                 data = dtail;
             }
             [QOI_OP_RGBA, r, g, b, a, dtail @ ..] if RGBA => {
-                px = Pixel::from_array([*r, *g, *b, *a]);
+                decode!(rgb: *r, *g, *b => px);
+                if N == 4 {
+                    px[3] = *a;
+                }
                 data = dtail;
             }
             [b1 @ QOI_OP_RUN..=QOI_OP_RUN_END, dtail @ ..] => {
-                *px_out = px.into();
-                let run = usize::from(b1 & 0x3f).min(pixels.len());
+                *px_out = px;
+                let run = ((b1 & 0x3f) as usize).min(pixels.len());
                 let (phead, ptail) = pixels.split_at_mut(run); // can't panic
-                phead.fill(px.into());
+                phead.fill(px);
                 pixels = ptail;
                 data = dtail;
                 continue;
             }
             [b1 @ QOI_OP_DIFF..=QOI_OP_DIFF_END, dtail @ ..] => {
-                px.rgb_add(
-                    ((b1 >> 4) & 0x03).wrapping_sub(2),
-                    ((b1 >> 2) & 0x03).wrapping_sub(2),
-                    (b1 & 0x03).wrapping_sub(2),
-                );
+                decode!(diff: b1 => px);
                 data = dtail;
             }
             [b1 @ QOI_OP_LUMA..=QOI_OP_LUMA_END, b2, dtail @ ..] => {
-                let vg = (b1 & 0x3f).wrapping_sub(32);
-                let vg_8 = vg.wrapping_sub(8);
-                let vr = vg_8.wrapping_add((b2 >> 4) & 0x0f);
-                let vb = vg_8.wrapping_add(b2 & 0x0f);
-                px.rgb_add(vr, vg, vb);
+                decode!(luma: b1, b2 => px);
                 data = dtail;
             }
             _ => {
                 cold();
-                if unlikely(data.len() < 8) {
-                    return Err(Error::UnexpectedBufferEnd);
+                if unlikely(data.len() < QOI_PADDING_SIZE) {
+                    return Err(Error::UnexpectedBufferEnd); // TODO: remove InputDataSize err
                 }
             }
         }
-        index[usize::from(px.hash_index())] = px;
-        *px_out = px.into();
+
+        index[hash_pixel(px) as usize] = px;
+        *px_out = px;
     }
 
-    Ok(out)
+    Ok(())
 }
 
 pub trait MaybeChannels {
@@ -111,19 +134,46 @@ impl MaybeChannels for Option<u8> {
 }
 
 #[inline]
+fn qoi_decode_impl_slice_all(
+    data: &[u8], out: &mut [u8], channels: u8, src_channels: u8,
+) -> Result<()> {
+    match (channels, src_channels) {
+        (3, 3) => qoi_decode_impl_slice::<3, false>(data, out),
+        (3, 4) => qoi_decode_impl_slice::<3, true>(data, out),
+        (4, 3) => qoi_decode_impl_slice::<4, false>(data, out),
+        (4, 4) => qoi_decode_impl_slice::<4, true>(data, out),
+        _ => {
+            cold();
+            return Err(Error::InvalidChannels { channels });
+        }
+    }
+}
+
+#[inline]
+pub fn qoi_decode_to_buf(
+    mut out: impl AsMut<[u8]>, data: impl AsRef<[u8]>, channels: impl MaybeChannels,
+) -> Result<Header> {
+    let (out, data) = (out.as_mut(), data.as_ref());
+    let header = Header::decode(data)?;
+    let channels = channels.maybe_channels().unwrap_or(header.channels);
+    let size = header.n_pixels() * channels as usize;
+    if unlikely(out.len() < size) {
+        return Err(Error::OutputBufferTooSmall { size: out.len(), required: size });
+    }
+    let data = &data[QOI_HEADER_SIZE..]; // can't panic
+    qoi_decode_impl_slice_all(data, out, header.channels, channels).map(|_| header)
+}
+
+#[inline]
 pub fn qoi_decode_to_vec(
     data: impl AsRef<[u8]>, channels: impl MaybeChannels,
 ) -> Result<(Header, Vec<u8>)> {
     let data = data.as_ref();
     let header = Header::decode(data)?;
     let channels = channels.maybe_channels().unwrap_or(header.channels);
-    match (channels, header.channels) {
-        (3, 3) => Ok((header, qoi_decode_impl::<3, false>(data, header.n_pixels())?)),
-        (3, 4) => Ok((header, qoi_decode_impl::<3, true>(data, header.n_pixels())?)),
-        (4, 3) => Ok((header, qoi_decode_impl::<4, false>(data, header.n_pixels())?)),
-        (4, 4) => Ok((header, qoi_decode_impl::<4, true>(data, header.n_pixels())?)),
-        _ => Err(Error::InvalidChannels { channels }),
-    }
+    let mut out = vec![0; header.n_pixels() * channels as usize];
+    let data = &data[QOI_HEADER_SIZE..]; // can't panic
+    qoi_decode_impl_slice_all(data, &mut out, header.channels, channels).map(|_| (header, out))
 }
 
 #[inline]
