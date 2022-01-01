@@ -68,6 +68,7 @@ fn find_pngs(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
             bail!("path doesn't exist: {}", path.to_string_lossy());
         }
     }
+    out.sort_unstable();
     Ok(out)
 }
 
