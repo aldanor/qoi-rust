@@ -16,6 +16,7 @@ pub enum Error {
     InvalidMagic { magic: u32 },
     UnexpectedBufferEnd,
     InvalidColorSpace { colorspace: u8 },
+    InvalidPadding,
 }
 
 pub type Result<T> = StdResult<T, Error>;
@@ -50,6 +51,9 @@ impl Display for Error {
             }
             Self::InvalidColorSpace { colorspace } => {
                 write!(f, "invalid color space: {} (expected 0 or 1)", colorspace)
+            }
+            Self::InvalidPadding => {
+                write!(f, "invalid padding (stream end marker)")
             }
         }
     }

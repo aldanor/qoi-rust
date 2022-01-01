@@ -1,9 +1,9 @@
 // TODO: can be removed once https://github.com/rust-lang/rust/issues/74985 is stable
-use bytemuck::{cast_slice_mut, Pod};
+use bytemuck::{cast_slice, cast_slice_mut, Pod};
 
 use crate::consts::{
     QOI_HEADER_SIZE, QOI_OP_DIFF, QOI_OP_INDEX, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA, QOI_OP_RUN,
-    QOI_PADDING_SIZE,
+    QOI_PADDING, QOI_PADDING_SIZE,
 };
 use crate::error::{Error, Result};
 use crate::header::Header;
@@ -49,12 +49,13 @@ macro_rules! decode {
 #[inline]
 fn qoi_decode_impl_slice<const N: usize, const RGBA: bool>(
     data: &[u8], out: &mut [u8],
-) -> Result<()>
+) -> Result<usize>
 where
     Pixel<N>: SupportedChannels,
     [u8; N]: Pod,
 {
     let mut pixels = cast_slice_mut::<_, [u8; N]>(out);
+    let data_len = data.len();
     let mut data = data;
 
     let mut index = [[0_u8; N]; 256];
@@ -112,31 +113,19 @@ where
         *px_out = px;
     }
 
-    Ok(())
-}
-
-pub trait MaybeChannels {
-    fn maybe_channels(self) -> Option<u8>;
-}
-
-impl MaybeChannels for u8 {
-    #[inline]
-    fn maybe_channels(self) -> Option<u8> {
-        Some(self)
+    if unlikely(data.len() < QOI_PADDING_SIZE) {
+        return Err(Error::UnexpectedBufferEnd);
+    } else if unlikely(cast_slice::<_, [u8; QOI_PADDING_SIZE]>(data)[0] != QOI_PADDING) {
+        return Err(Error::InvalidPadding);
     }
-}
 
-impl MaybeChannels for Option<u8> {
-    #[inline]
-    fn maybe_channels(self) -> Option<u8> {
-        self
-    }
+    Ok(data_len.saturating_sub(data.len()).saturating_sub(QOI_PADDING_SIZE))
 }
 
 #[inline]
 fn qoi_decode_impl_slice_all(
     data: &[u8], out: &mut [u8], channels: u8, src_channels: u8,
-) -> Result<()> {
+) -> Result<usize> {
     match (channels, src_channels) {
         (3, 3) => qoi_decode_impl_slice::<3, false>(data, out),
         (3, 4) => qoi_decode_impl_slice::<3, true>(data, out),
@@ -150,33 +139,82 @@ fn qoi_decode_impl_slice_all(
 }
 
 #[inline]
-pub fn qoi_decode_to_buf(
-    mut out: impl AsMut<[u8]>, data: impl AsRef<[u8]>, channels: impl MaybeChannels,
-) -> Result<Header> {
-    let (out, data) = (out.as_mut(), data.as_ref());
-    let header = Header::decode(data)?;
-    let channels = channels.maybe_channels().unwrap_or(header.channels);
-    let size = header.n_pixels() * channels as usize;
-    if unlikely(out.len() < size) {
-        return Err(Error::OutputBufferTooSmall { size: out.len(), required: size });
-    }
-    let data = &data[QOI_HEADER_SIZE..]; // can't panic
-    qoi_decode_impl_slice_all(data, out, header.channels, channels).map(|_| header)
+pub fn qoi_decode_to_buf(buf: impl AsMut<[u8]>, data: impl AsRef<[u8]>) -> Result<Header> {
+    let mut decoder = QoiDecoder::new(&data)?;
+    decoder.decode_to_buf(buf)?;
+    Ok(*decoder.header())
 }
 
 #[inline]
-pub fn qoi_decode_to_vec(
-    data: impl AsRef<[u8]>, channels: impl MaybeChannels,
-) -> Result<(Header, Vec<u8>)> {
-    let data = data.as_ref();
-    let header = Header::decode(data)?;
-    let channels = channels.maybe_channels().unwrap_or(header.channels);
-    let mut out = vec![0; header.n_pixels() * channels as usize];
-    let data = &data[QOI_HEADER_SIZE..]; // can't panic
-    qoi_decode_impl_slice_all(data, &mut out, header.channels, channels).map(|_| (header, out))
+pub fn qoi_decode_to_vec(data: impl AsRef<[u8]>) -> Result<(Header, Vec<u8>)> {
+    let mut decoder = QoiDecoder::new(&data)?;
+    let out = decoder.decode_to_vec()?;
+    Ok((*decoder.header(), out))
 }
 
 #[inline]
 pub fn qoi_decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
     Header::decode(data)
+}
+
+#[derive(Clone)]
+pub struct QoiDecoder<'a> {
+    data: &'a [u8],
+    header: Header,
+    channels: u8,
+}
+
+impl<'a> QoiDecoder<'a> {
+    #[inline]
+    pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized)) -> Result<Self> {
+        let data = data.as_ref();
+        let header = Header::decode(data)?;
+        let data = &data[QOI_HEADER_SIZE..]; // can't panic
+        Ok(Self { data, header, channels: header.channels })
+    }
+
+    #[inline]
+    pub fn with_channels(mut self, channels: u8) -> Self {
+        self.channels = channels;
+        self
+    }
+
+    #[inline]
+    pub fn channels(&self) -> u8 {
+        self.channels
+    }
+
+    #[inline]
+    pub fn header(&self) -> &Header {
+        &self.header
+    }
+
+    #[inline]
+    pub fn data(self) -> &'a [u8] {
+        self.data
+    }
+
+    #[inline]
+    pub fn decode_to_buf(&mut self, mut buf: impl AsMut<[u8]>) -> Result<()> {
+        let buf = buf.as_mut();
+        let size = self.header.n_pixels() * self.channels as usize;
+        if unlikely(buf.len() < size) {
+            return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
+        }
+        let n_read =
+            qoi_decode_impl_slice_all(self.data, buf, self.channels, self.header.channels)?;
+        self.data = &self.data[n_read..]; // can't panic
+        Ok(())
+    }
+
+    #[inline]
+    pub fn decode_to_vec(&mut self) -> Result<Vec<u8>> {
+        if unlikely(self.channels > 4) {
+            // prevent accidental over-allocations
+            cold();
+            return Err(Error::InvalidChannels { channels: self.channels });
+        }
+        let mut out = vec![0; self.header.n_pixels() * self.channels as usize];
+        self.decode_to_buf(&mut out).map(|_| out)
+    }
 }
