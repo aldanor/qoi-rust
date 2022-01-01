@@ -133,7 +133,7 @@ fn qoi_decode_impl_slice_all(
         (4, 4) => qoi_decode_impl_slice::<4, true>(data, out),
         _ => {
             cold();
-            return Err(Error::InvalidChannels { channels });
+            Err(Error::InvalidChannels { channels })
         }
     }
 }
@@ -174,28 +174,28 @@ impl<'a> QoiDecoder<'a> {
     }
 
     #[inline]
-    pub fn with_channels(mut self, channels: u8) -> Self {
+    pub const fn with_channels(mut self, channels: u8) -> Self {
         self.channels = channels;
         self
     }
 
     #[inline]
-    pub fn channels(&self) -> u8 {
+    pub const fn channels(&self) -> u8 {
         self.channels
     }
 
     #[inline]
-    pub fn header(&self) -> &Header {
+    pub const fn header(&self) -> &Header {
         &self.header
     }
 
     #[inline]
-    pub fn data(self) -> &'a [u8] {
+    pub const fn data(self) -> &'a [u8] {
         self.data
     }
 
     #[inline]
-    pub fn decode_to_buf(&mut self, mut buf: impl AsMut<[u8]>) -> Result<()> {
+    pub fn decode_to_buf(&mut self, mut buf: impl AsMut<[u8]>) -> Result<usize> {
         let buf = buf.as_mut();
         let size = self.header.n_pixels() * self.channels as usize;
         if unlikely(buf.len() < size) {
@@ -204,7 +204,7 @@ impl<'a> QoiDecoder<'a> {
         let n_read =
             qoi_decode_impl_slice_all(self.data, buf, self.channels, self.header.channels)?;
         self.data = &self.data[n_read..]; // can't panic
-        Ok(())
+        Ok(size)
     }
 
     #[inline]
