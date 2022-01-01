@@ -1,11 +1,12 @@
 use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::fmt::{self, Display};
+use std::io;
 use std::result::Result as StdResult;
 
 use crate::consts::{QOI_MAGIC, QOI_PIXELS_MAX};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Error {
     InvalidChannels { channels: u8 },
     EmptyImage { width: u32, height: u32 },
@@ -17,6 +18,7 @@ pub enum Error {
     UnexpectedBufferEnd,
     InvalidColorSpace { colorspace: u8 },
     InvalidPadding,
+    IoError(io::Error),
 }
 
 pub type Result<T> = StdResult<T, Error>;
@@ -55,6 +57,9 @@ impl Display for Error {
             Self::InvalidPadding => {
                 write!(f, "invalid padding (stream end marker)")
             }
+            Self::IoError(ref err) => {
+                write!(f, "i/o error: {}", err)
+            }
         }
     }
 }
@@ -64,5 +69,11 @@ impl StdError for Error {}
 impl From<Infallible> for Error {
     fn from(_: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Self {
+        Self::IoError(err)
     }
 }
