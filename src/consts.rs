@@ -12,7 +12,6 @@ pub const QOI_HEADER_SIZE: usize = 14;
 pub const QOI_PADDING: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0x01]; // 7 zeros and one 0x01 marker
 pub const QOI_PADDING_SIZE: usize = 8;
 
-pub const QOI_MAGIC: u32 =
-    (b'q' as u32) << 24 | (b'o' as u32) << 16 | (b'i' as u32) << 8 | (b'f' as u32);
+pub const QOI_MAGIC: u32 = u32::from_be_bytes(*b"qoif");
 
 pub const QOI_PIXELS_MAX: usize = 400_000_000;
