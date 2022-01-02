@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::Read;
 
 // TODO: can be removed once https://github.com/rust-lang/rust/issues/74985 is stable
 use bytemuck::{cast_slice, cast_slice_mut, Pod};
@@ -219,42 +219,33 @@ impl<'a> QoiDecoder<'a> {
         let mut out = vec![0; self.header.n_pixels() * self.channels as usize];
         self.decode_to_buf(&mut out).map(|_| out)
     }
-
-    #[inline]
-    pub fn decode_to_stream<W: Write>(&mut self, writer: &mut W) -> Result<()> {
-        qoi_decode_impl_stream_all(
-            &mut self.data,
-            writer,
-            self.channels,
-            self.header.channels,
-            self.header.n_pixels(),
-        )
-    }
 }
 
 #[inline]
-fn qoi_decode_impl_stream<R: Read, W: Write, const N: usize, const RGBA: bool>(
-    data: &mut R, out: &mut W, mut n_pixels: usize,
+fn qoi_decode_impl_stream<R: Read, const N: usize, const RGBA: bool>(
+    data: &mut R, out: &mut [u8],
 ) -> Result<()>
 where
     Pixel<N>: SupportedChannels,
     [u8; N]: Pod,
 {
+    let mut pixels = cast_slice_mut::<_, [u8; N]>(out);
+
     let mut index = [[0_u8; N]; 256];
     let mut px = [0_u8; N];
     if N == 4 {
         px[3] = 0xff;
     }
 
-    while n_pixels != 0 {
-        n_pixels -= 1;
+    while let [px_out, ptail @ ..] = pixels {
+        pixels = ptail;
         let mut p = [0];
         data.read_exact(&mut p)?;
         let [b1] = p;
         match b1 {
             QOI_OP_INDEX..=QOI_OP_INDEX_END => {
                 px = index[b1 as usize];
-                out.write_all(&px)?;
+                *px_out = px;
                 continue;
             }
             QOI_OP_RGB => {
@@ -271,11 +262,11 @@ where
                 }
             }
             QOI_OP_RUN..=QOI_OP_RUN_END => {
-                let run = (b1 & 0x3f) as usize;
-                for _ in 0..=run {
-                    out.write_all(&px)?;
-                }
-                n_pixels = n_pixels.saturating_sub(run);
+                *px_out = px;
+                let run = ((b1 & 0x3f) as usize).min(pixels.len());
+                let (phead, ptail) = pixels.split_at_mut(run); // can't panic
+                phead.fill(px);
+                pixels = ptail;
                 continue;
             }
             QOI_OP_DIFF..=QOI_OP_DIFF_END => {
@@ -293,7 +284,7 @@ where
         }
 
         index[hash_pixel(px) as usize] = px;
-        out.write_all(&px)?;
+        *px_out = px;
     }
 
     let mut p = [0_u8; QOI_PADDING_SIZE];
@@ -306,14 +297,14 @@ where
 }
 
 #[inline]
-fn qoi_decode_impl_stream_all<R: Read, W: Write>(
-    data: &mut R, out: &mut W, channels: u8, src_channels: u8, n_pixels: usize,
+fn qoi_decode_impl_stream_all<R: Read>(
+    data: &mut R, out: &mut [u8], channels: u8, src_channels: u8, n_pixels: usize,
 ) -> Result<()> {
     match (channels, src_channels) {
-        (3, 3) => qoi_decode_impl_stream::<_, _, 3, false>(data, out, n_pixels),
-        (3, 4) => qoi_decode_impl_stream::<_, _, 3, true>(data, out, n_pixels),
-        (4, 3) => qoi_decode_impl_stream::<_, _, 4, false>(data, out, n_pixels),
-        (4, 4) => qoi_decode_impl_stream::<_, _, 4, true>(data, out, n_pixels),
+        (3, 3) => qoi_decode_impl_stream::<_, 3, false>(data, out),
+        (3, 4) => qoi_decode_impl_stream::<_, 3, true>(data, out),
+        (4, 3) => qoi_decode_impl_stream::<_, 4, false>(data, out),
+        (4, 4) => qoi_decode_impl_stream::<_, 4, true>(data, out),
         _ => {
             cold();
             Err(Error::InvalidChannels { channels })
@@ -368,7 +359,14 @@ impl<R: Read> QoiStreamDecoder<R> {
         if unlikely(buf.len() < size) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
         }
-        self.decode_to_stream(&mut buf)
+        qoi_decode_impl_stream_all(
+            &mut self.reader,
+            buf,
+            self.channels,
+            self.header.channels,
+            self.header.n_pixels(),
+        )?;
+        Ok(size)
     }
 
     #[inline]
@@ -379,19 +377,7 @@ impl<R: Read> QoiStreamDecoder<R> {
             return Err(Error::InvalidChannels { channels: self.channels });
         }
         let mut out = vec![0; self.header.n_pixels() * self.channels as usize];
-        let _ = self.decode_to_stream(&mut out.as_mut_slice())?;
+        let _ = self.decode_to_buf(&mut out)?;
         Ok(out)
-    }
-
-    #[inline]
-    pub fn decode_to_stream<W: Write>(&mut self, writer: &mut W) -> Result<usize> {
-        qoi_decode_impl_stream_all(
-            &mut self.reader,
-            writer,
-            self.channels,
-            self.header.channels,
-            self.header.n_pixels(),
-        )?;
-        Ok(self.header.n_pixels() * self.channels as usize)
     }
 }
