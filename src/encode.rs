@@ -44,13 +44,13 @@ impl<'a> WriteBuf<'a> {
 }
 
 #[allow(clippy::cast_possible_truncation)]
-fn qoi_encode_impl<const CHANNELS: usize>(
+fn qoi_encode_impl<const N: usize>(
     out: &mut [u8], data: &[u8], width: u32, height: u32, colorspace: ColorSpace,
 ) -> Result<usize>
 where
-    Pixel<CHANNELS>: SupportedChannels,
+    Pixel<N>: SupportedChannels,
 {
-    let max_len = encode_size_required(width, height, CHANNELS as u8);
+    let max_len = encode_size_required(width, height, N as u8);
     if unlikely(out.len() < max_len) {
         return Err(Error::OutputBufferTooSmall { size: out.len(), required: max_len });
     }
@@ -60,23 +60,22 @@ where
         return Err(Error::EmptyImage { width, height });
     } else if unlikely(n_pixels > QOI_PIXELS_MAX) {
         return Err(Error::ImageTooLarge { width, height });
-    } else if unlikely(n_pixels * CHANNELS != data.len()) {
-        return Err(Error::BadEncodingDataSize { size: data.len(), expected: n_pixels * CHANNELS });
+    } else if unlikely(n_pixels * N != data.len()) {
+        return Err(Error::BadEncodingDataSize { size: data.len(), expected: n_pixels * N });
     }
 
     let out_size = out.len();
     let mut buf = WriteBuf::new(out);
 
-    let header =
-        Header { width, height, channels: CHANNELS as u8, colorspace, ..Header::default() };
+    let header = Header { width, height, channels: N as u8, colorspace, ..Header::default() };
     buf = buf.write(header.encode());
 
     let mut index = [Pixel::new(); 256];
     let mut px_prev = Pixel::new().with_a(0xff);
     let mut run = 0_u8;
-    let mut px = Pixel::<CHANNELS>::new().with_a(0xff);
+    let mut px = Pixel::<N>::new().with_a(0xff);
 
-    for (i, chunk) in data.chunks_exact(CHANNELS).enumerate() {
+    for (i, chunk) in data.chunks_exact(N).enumerate() {
         px.read(chunk);
         if px == px_prev {
             run += 1;
@@ -90,14 +89,14 @@ where
                 run = 0;
             }
             let index_pos = px.hash_index();
-            let index_px = &mut index[usize::from(index_pos)];
+            let index_px = &mut index[index_pos as usize];
             let px_rgba = px.as_rgba(0xff);
             if *index_px == px_rgba {
                 buf = buf.push(QOI_OP_INDEX | index_pos);
             } else {
                 *index_px = px_rgba;
 
-                if px.a_or(0) == px_prev.a_or(0) {
+                if N == 3 || px.a_or(0) == px_prev.a_or(0) {
                     let vr = px.r().wrapping_sub(px_prev.r());
                     let vg = px.g().wrapping_sub(px_prev.g());
                     let vb = px.b().wrapping_sub(px_prev.b());
