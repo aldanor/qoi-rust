@@ -1,6 +1,6 @@
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct Pixel<const N: usize>([u8; N]);
+pub struct Pixel<const N: usize>(pub [u8; N]);
 
 impl<const N: usize> Pixel<N> {
     #[inline]
@@ -15,6 +15,41 @@ impl<const N: usize> Pixel<N> {
             self.0[i] = s[i];
             i += 1;
         }
+    }
+
+    #[inline]
+    pub fn update_rgb(&mut self, r: u8, g: u8, b: u8) {
+        self.0[0] = r;
+        self.0[1] = g;
+        self.0[2] = b;
+    }
+
+    #[inline]
+    pub fn update_rgba(&mut self, r: u8, g: u8, b: u8, a: u8) {
+        self.0[0] = r;
+        self.0[1] = g;
+        self.0[2] = b;
+        if N >= 4 {
+            self.0[3] = a;
+        }
+    }
+
+    #[inline]
+    pub fn update_diff(&mut self, b1: u8) {
+        self.0[0] = self.0[0].wrapping_add((b1 >> 4) & 0x03).wrapping_sub(2);
+        self.0[1] = self.0[1].wrapping_add((b1 >> 2) & 0x03).wrapping_sub(2);
+        self.0[2] = self.0[2].wrapping_add(b1 & 0x03).wrapping_sub(2);
+    }
+
+    #[inline]
+    pub fn update_luma(&mut self, b1: u8, b2: u8) {
+        let vg = (b1 & 0x3f).wrapping_sub(32);
+        let vg_8 = vg.wrapping_sub(8);
+        let vr = vg_8.wrapping_add((b2 >> 4) & 0x0f);
+        let vb = vg_8.wrapping_add(b2 & 0x0f);
+        self.0[0] = self.0[0].wrapping_add(vr);
+        self.0[1] = self.0[1].wrapping_add(vg);
+        self.0[2] = self.0[2].wrapping_add(vb);
     }
 
     #[inline]
