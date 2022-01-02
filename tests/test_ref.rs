@@ -95,7 +95,7 @@ fn test_reference_images() -> Result<()> {
         let png_name = png_path.file_name().unwrap_or_default().to_string_lossy();
         let img = Image::from_png(png_path)?;
         println!("{} {} {} {}", png_name, img.width, img.height, img.channels);
-        let encoded = qoi_encode_to_vec(&img.data, img.width, img.height, img.channels, 0)?;
+        let encoded = qoi_encode_to_vec(&img.data, img.width, img.height)?;
         let expected = fs::read(qoi_path)?;
         compare_slices(&png_name, "encoding", &encoded, &expected)?;
         let (_header, decoded) = qoi_decode_to_vec(&expected)?;

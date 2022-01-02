@@ -123,7 +123,7 @@ impl Codec for CodecQoiFast {
     }
 
     fn encode(img: &Image) -> Result<Vec<u8>> {
-        Ok(qoi_fast::qoi_encode_to_vec(&img.data, img.width, img.height, img.channels, 0)?)
+        Ok(qoi_fast::qoi_encode_to_vec(&img.data, img.width, img.height)?)
     }
 
     fn decode(data: &[u8], _img: &Image) -> Result<Vec<u8>> {
