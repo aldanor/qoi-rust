@@ -10,6 +10,7 @@ use crate::consts::{
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
+use crate::types::Channels;
 use crate::utils::{cold, unlikely};
 
 const QOI_OP_INDEX_END: u8 = QOI_OP_INDEX | 0x3f;
@@ -126,7 +127,7 @@ pub fn qoi_decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
 pub struct QoiDecoder<'a> {
     data: &'a [u8],
     header: Header,
-    channels: u8,
+    channels: Channels,
 }
 
 impl<'a> QoiDecoder<'a> {
@@ -139,13 +140,13 @@ impl<'a> QoiDecoder<'a> {
     }
 
     #[inline]
-    pub const fn with_channels(mut self, channels: u8) -> Self {
+    pub const fn with_channels(mut self, channels: Channels) -> Self {
         self.channels = channels;
         self
     }
 
     #[inline]
-    pub const fn channels(&self) -> u8 {
+    pub const fn channels(&self) -> Channels {
         self.channels
     }
 
@@ -162,24 +163,23 @@ impl<'a> QoiDecoder<'a> {
     #[inline]
     pub fn decode_to_buf(&mut self, mut buf: impl AsMut<[u8]>) -> Result<usize> {
         let buf = buf.as_mut();
-        let size = self.header.n_pixels() * self.channels as usize;
+        let size = self.header.n_pixels() * self.channels.as_u8() as usize;
         if unlikely(buf.len() < size) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
         }
-        let n_read =
-            qoi_decode_impl_slice_all(self.data, buf, self.channels, self.header.channels)?;
+        let n_read = qoi_decode_impl_slice_all(
+            self.data,
+            buf,
+            self.channels.as_u8(),
+            self.header.channels.as_u8(),
+        )?;
         self.data = &self.data[n_read..]; // can't panic
         Ok(size)
     }
 
     #[inline]
     pub fn decode_to_vec(&mut self) -> Result<Vec<u8>> {
-        if unlikely(self.channels > 4) {
-            // prevent accidental over-allocations
-            cold();
-            return Err(Error::InvalidChannels { channels: self.channels });
-        }
-        let mut out = vec![0; self.header.n_pixels() * self.channels as usize];
+        let mut out = vec![0; self.header.n_pixels() * self.channels.as_u8() as usize];
         self.decode_to_buf(&mut out).map(|_| out)
     }
 }
@@ -272,7 +272,7 @@ fn qoi_decode_impl_stream_all<R: Read>(
 pub struct QoiStreamDecoder<R> {
     reader: R,
     header: Header,
-    channels: u8,
+    channels: Channels,
 }
 
 impl<R: Read> QoiStreamDecoder<R> {
@@ -284,13 +284,13 @@ impl<R: Read> QoiStreamDecoder<R> {
         Ok(Self { reader, header, channels: header.channels })
     }
 
-    pub fn with_channels(mut self, channels: u8) -> Self {
+    pub fn with_channels(mut self, channels: Channels) -> Self {
         self.channels = channels;
         self
     }
 
     #[inline]
-    pub fn channels(&self) -> u8 {
+    pub fn channels(&self) -> Channels {
         self.channels
     }
 
@@ -312,22 +312,22 @@ impl<R: Read> QoiStreamDecoder<R> {
     #[inline]
     pub fn decode_to_buf(&mut self, mut buf: impl AsMut<[u8]>) -> Result<usize> {
         let buf = buf.as_mut();
-        let size = self.header.n_pixels() * self.channels as usize;
+        let size = self.header.n_pixels() * self.channels.as_u8() as usize;
         if unlikely(buf.len() < size) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
         }
-        qoi_decode_impl_stream_all(&mut self.reader, buf, self.channels, self.header.channels)?;
+        qoi_decode_impl_stream_all(
+            &mut self.reader,
+            buf,
+            self.channels.as_u8(),
+            self.header.channels.as_u8(),
+        )?;
         Ok(size)
     }
 
     #[inline]
     pub fn decode_to_vec(&mut self) -> Result<Vec<u8>> {
-        if unlikely(self.channels > 4) {
-            // prevent accidental over-allocations
-            cold();
-            return Err(Error::InvalidChannels { channels: self.channels });
-        }
-        let mut out = vec![0; self.header.n_pixels() * self.channels as usize];
+        let mut out = vec![0; self.header.n_pixels() * self.channels.as_u8() as usize];
         let _ = self.decode_to_buf(&mut out)?;
         Ok(out)
     }

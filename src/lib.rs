@@ -9,21 +9,21 @@
     clippy::cargo_common_metadata
 )]
 
-mod colorspace;
 mod decode;
 mod encode;
 mod error;
 mod header;
 mod pixel;
+mod types;
 mod utils;
 
 #[doc(hidden)]
 pub mod consts;
 
-pub use crate::colorspace::ColorSpace;
 pub use crate::decode::{
     qoi_decode_header, qoi_decode_to_buf, qoi_decode_to_vec, QoiDecoder, QoiStreamDecoder,
 };
-pub use crate::encode::{encode_size_required, qoi_encode_to_buf, qoi_encode_to_vec};
+pub use crate::encode::{encoded_size_limit, qoi_encode_to_buf, qoi_encode_to_vec, QoiEncoder};
 pub use crate::error::{Error, Result};
 pub use crate::header::Header;
+pub use crate::types::{Channels, ColorSpace};

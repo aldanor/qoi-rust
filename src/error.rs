@@ -11,7 +11,7 @@ pub enum Error {
     InvalidChannels { channels: u8 },
     EmptyImage { width: u32, height: u32 },
     ImageTooLarge { width: u32, height: u32 },
-    BadEncodingDataSize { size: usize, expected: usize },
+    InvalidImageLength { size: usize, width: u32, height: u32 },
     InputBufferTooSmall { size: usize, required: usize },
     OutputBufferTooSmall { size: usize, required: usize },
     InvalidMagic { magic: u32 },
@@ -36,8 +36,8 @@ impl Display for Error {
                 let mp = QOI_PIXELS_MAX / 1_000_000;
                 write!(f, "image is too large: {}x{} (max={}Mp)", width, height, mp)
             }
-            Self::BadEncodingDataSize { size, expected } => {
-                write!(f, "bad data size when encoding: {} (expected: {})", size, expected)
+            Self::InvalidImageLength { size, width, height } => {
+                write!(f, "invalid image length: {} for {}x{}", size, width, height)
             }
             Self::InputBufferTooSmall { size, required } => {
                 write!(f, "input buffer size too small: {} (minimum required: {})", size, required)

@@ -51,3 +51,52 @@ impl TryFrom<u8> for ColorSpace {
         }
     }
 }
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[repr(u8)]
+pub enum Channels {
+    /// Three 8-bit channels (RGB)
+    Rgb = 3,
+    /// Four 8-bit channels (RGBA)
+    Rgba = 4,
+}
+
+impl Channels {
+    pub const fn is_rgb(self) -> bool {
+        matches!(self, Self::Rgb)
+    }
+
+    pub const fn is_rgba(self) -> bool {
+        matches!(self, Self::Rgba)
+    }
+
+    pub const fn as_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+impl Default for Channels {
+    fn default() -> Self {
+        Self::Rgb
+    }
+}
+
+impl From<Channels> for u8 {
+    #[inline]
+    fn from(channels: Channels) -> Self {
+        channels as Self
+    }
+}
+
+impl TryFrom<u8> for Channels {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(channels: u8) -> Result<Self> {
+        if unlikely(channels != 3 && channels != 4) {
+            Err(Error::InvalidChannels { channels })
+        } else {
+            Ok(if channels == 3 { Self::Rgb } else { Self::Rgba })
+        }
+    }
+}

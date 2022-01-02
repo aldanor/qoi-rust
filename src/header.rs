@@ -1,29 +1,50 @@
+use std::convert::TryInto;
+
 use bytemuck::cast_slice;
 
-use crate::colorspace::ColorSpace;
 use crate::consts::{QOI_HEADER_SIZE, QOI_MAGIC, QOI_PIXELS_MAX};
+use crate::encoded_size_limit;
 use crate::error::{Error, Result};
+use crate::types::{Channels, ColorSpace};
 use crate::utils::unlikely;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Header {
     pub width: u32,
     pub height: u32,
-    pub channels: u8,
+    pub channels: Channels,
     pub colorspace: ColorSpace,
 }
 
 impl Default for Header {
     #[inline]
     fn default() -> Self {
-        Self { width: 1, height: 1, channels: 3, colorspace: ColorSpace::default() }
+        Self {
+            width: 1,
+            height: 1,
+            channels: Channels::default(),
+            colorspace: ColorSpace::default(),
+        }
     }
 }
 
 impl Header {
     #[inline]
-    pub const fn new(width: u32, height: u32, channels: u8) -> Self {
-        Self { width, height, channels, colorspace: ColorSpace::Srgb }
+    pub const fn try_new(
+        width: u32, height: u32, channels: Channels, colorspace: ColorSpace,
+    ) -> Result<Self> {
+        if unlikely(height == 0 || width == 0) {
+            return Err(Error::EmptyImage { width, height });
+        } else if unlikely((width as usize).saturating_mul(height as usize) > QOI_PIXELS_MAX) {
+            return Err(Error::ImageTooLarge { width, height });
+        }
+        Ok(Self { width, height, channels, colorspace })
+    }
+
+    #[inline]
+    pub const fn with_channels(mut self, channels: Channels) -> Self {
+        self.channels = channels;
+        self
     }
 
     #[inline]
@@ -43,7 +64,7 @@ impl Header {
         out[..4].copy_from_slice(&QOI_MAGIC.to_be_bytes());
         out[4..8].copy_from_slice(&self.width.to_be_bytes());
         out[8..12].copy_from_slice(&self.height.to_be_bytes());
-        out[12] = self.channels;
+        out[12] = self.channels.into();
         out[13] = self.colorspace.into();
         out
     }
@@ -58,22 +79,26 @@ impl Header {
         let magic = u32::from_be_bytes(v[0]);
         let width = u32::from_be_bytes(v[1]);
         let height = u32::from_be_bytes(v[2]);
-        let channels = data[12];
-        let colorspace = ColorSpace::try_from(data[13])?;
+        let channels = data[12].try_into()?;
+        let colorspace = data[13].try_into()?;
         if unlikely(magic != QOI_MAGIC) {
             return Err(Error::InvalidMagic { magic });
-        } else if unlikely(height == 0 || width == 0) {
-            return Err(Error::EmptyImage { width, height });
-        } else if unlikely((width as usize) * (height as usize) > QOI_PIXELS_MAX) {
-            return Err(Error::ImageTooLarge { width, height });
-        } else if unlikely(channels != 3 && channels != 4) {
-            return Err(Error::InvalidChannels { channels });
         }
-        Ok(Self { width, height, channels, colorspace })
+        Self::try_new(width, height, channels, colorspace)
     }
 
     #[inline]
     pub const fn n_pixels(&self) -> usize {
         (self.width as usize).saturating_mul(self.height as usize)
+    }
+
+    #[inline]
+    pub const fn n_bytes(&self) -> usize {
+        self.n_pixels() * self.channels.as_u8() as usize
+    }
+
+    #[inline]
+    pub fn encoded_size_limit(&self) -> usize {
+        encoded_size_limit(self.width, self.height, self.channels)
     }
 }
