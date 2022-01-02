@@ -33,7 +33,7 @@ where
     let out_size = out.len();
     let mut buf = BytesMut::new(out);
 
-    let header = Header { width, height, channels: N as u8, colorspace, ..Header::default() };
+    let header = Header { width, height, channels: N as u8, colorspace };
     buf = buf.write_many(&header.encode());
 
     let mut index = [Pixel::new(); 256];

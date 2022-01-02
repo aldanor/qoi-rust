@@ -5,7 +5,6 @@ use crate::utils::unlikely;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Header {
-    pub magic: u32,
     pub width: u32,
     pub height: u32,
     pub channels: u8,
@@ -15,13 +14,7 @@ pub struct Header {
 impl Default for Header {
     #[inline]
     fn default() -> Self {
-        Self {
-            magic: QOI_MAGIC,
-            width: 1,
-            height: 1,
-            channels: 3,
-            colorspace: ColorSpace::default(),
-        }
+        Self { width: 1, height: 1, channels: 3, colorspace: ColorSpace::default() }
     }
 }
 
@@ -44,7 +37,7 @@ const fn u32_from_be(v: &[u8]) -> u32 {
 impl Header {
     #[inline]
     pub const fn new(width: u32, height: u32, channels: u8) -> Self {
-        Self { magic: QOI_MAGIC, width, height, channels, colorspace: ColorSpace::Srgb }
+        Self { width, height, channels, colorspace: ColorSpace::Srgb }
     }
 
     #[inline]
@@ -61,7 +54,7 @@ impl Header {
     #[inline]
     pub(crate) fn encode(&self) -> [u8; QOI_HEADER_SIZE] {
         let mut out = [0; QOI_HEADER_SIZE];
-        out[..4].copy_from_slice(&u32_to_be(self.magic));
+        out[..4].copy_from_slice(&u32_to_be(QOI_MAGIC));
         out[4..8].copy_from_slice(&u32_to_be(self.width));
         out[8..12].copy_from_slice(&u32_to_be(self.height));
         out[12] = self.channels;
@@ -89,7 +82,7 @@ impl Header {
         } else if unlikely(channels != 3 && channels != 4) {
             return Err(Error::InvalidChannels { channels });
         }
-        Ok(Self { magic, width, height, channels, colorspace })
+        Ok(Self { width, height, channels, colorspace })
     }
 
     #[inline]
