@@ -374,7 +374,12 @@ fn bench_png(filename: &Path, seconds: f64, use_median: bool) -> Result<ImageBen
 fn bench_suite(files: &[PathBuf], seconds: f64, use_median: bool) -> Result<()> {
     let mut totals = BenchTotals::new();
     for file in files {
-        totals.update(&bench_png(file, seconds, use_median)?);
+        match bench_png(file, seconds, use_median) {
+            Ok(res) => totals.update(&res),
+            Err(err) => {
+                eprintln!("Error processing `{}`: {}", file.display(), err);
+            }
+        }
     }
     totals.report(use_median);
     Ok(())
