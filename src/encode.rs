@@ -2,46 +2,12 @@ use std::convert::TryInto;
 
 use crate::colorspace::ColorSpace;
 use crate::consts::{
-    QOI_HEADER_SIZE, QOI_OP_DIFF, QOI_OP_INDEX, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA, QOI_OP_RUN,
-    QOI_PADDING, QOI_PADDING_SIZE, QOI_PIXELS_MAX,
+    QOI_HEADER_SIZE, QOI_OP_INDEX, QOI_OP_RUN, QOI_PADDING, QOI_PADDING_SIZE, QOI_PIXELS_MAX,
 };
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
-use crate::utils::{cold, unlikely};
-
-struct WriteBuf<'a> {
-    buf: &'a mut [u8],
-}
-
-impl<'a> WriteBuf<'a> {
-    pub fn new(buf: &'a mut [u8]) -> Self {
-        Self { buf }
-    }
-
-    #[inline]
-    pub fn write<const N: usize>(self, v: [u8; N]) -> Self {
-        let (head, tail) = self.buf.split_at_mut(N);
-        head.copy_from_slice(&v);
-        Self { buf: tail }
-    }
-
-    #[inline]
-    pub fn push(self, v: u8) -> Self {
-        if let Some((first, tail)) = self.buf.split_first_mut() {
-            *first = v;
-            Self { buf: tail }
-        } else {
-            cold();
-            panic!();
-        }
-    }
-
-    #[inline]
-    pub const fn len(&self) -> usize {
-        self.buf.len()
-    }
-}
+use crate::utils::{unlikely, BytesMut};
 
 #[allow(clippy::cast_possible_truncation)]
 fn qoi_encode_impl<const N: usize>(
@@ -65,10 +31,10 @@ where
     }
 
     let out_size = out.len();
-    let mut buf = WriteBuf::new(out);
+    let mut buf = BytesMut::new(out);
 
     let header = Header { width, height, channels: N as u8, colorspace, ..Header::default() };
-    buf = buf.write(header.encode());
+    buf = buf.write_many(&header.encode());
 
     let mut index = [Pixel::new(); 256];
     let mut px_prev = Pixel::new().with_a(0xff);
@@ -80,57 +46,28 @@ where
         if px == px_prev {
             run += 1;
             if run == 62 || unlikely(i == n_pixels - 1) {
-                buf = buf.push(QOI_OP_RUN | (run - 1));
+                buf = buf.write_one(QOI_OP_RUN | (run - 1));
                 run = 0;
             }
         } else {
             if run != 0 {
-                buf = buf.push(QOI_OP_RUN | (run - 1));
+                buf = buf.write_one(QOI_OP_RUN | (run - 1));
                 run = 0;
             }
             let index_pos = px.hash_index();
             let index_px = &mut index[index_pos as usize];
             let px_rgba = px.as_rgba(0xff);
             if *index_px == px_rgba {
-                buf = buf.push(QOI_OP_INDEX | index_pos);
+                buf = buf.write_one(QOI_OP_INDEX | index_pos);
             } else {
                 *index_px = px_rgba;
-
-                if N == 3 || px.a_or(0) == px_prev.a_or(0) {
-                    let vr = px.r().wrapping_sub(px_prev.r());
-                    let vg = px.g().wrapping_sub(px_prev.g());
-                    let vb = px.b().wrapping_sub(px_prev.b());
-
-                    let vg_r = vr.wrapping_sub(vg);
-                    let vg_b = vb.wrapping_sub(vg);
-
-                    let vg_32 = vg.wrapping_add(32);
-
-                    if vg_32 | 63 == 63 {
-                        let (vr_2, vg_2, vb_2) =
-                            (vr.wrapping_add(2), vg.wrapping_add(2), vb.wrapping_add(2));
-                        if vr_2 | vg_2 | vb_2 | 3 == 3 {
-                            buf = buf.push(QOI_OP_DIFF | vr_2 << 4 | vg_2 << 2 | vb_2);
-                        } else {
-                            let (vg_r_8, vg_b_8) = (vg_r.wrapping_add(8), vg_b.wrapping_add(8));
-                            if vg_r_8 | vg_b_8 | 15 == 15 {
-                                buf = buf.write([QOI_OP_LUMA | vg_32, vg_r_8 << 4 | vg_b_8]);
-                            } else {
-                                buf = buf.write([QOI_OP_RGB, px.r(), px.g(), px.b()]);
-                            }
-                        }
-                    } else {
-                        buf = buf.write([QOI_OP_RGB, px.r(), px.g(), px.b()]);
-                    }
-                } else {
-                    buf = buf.write([QOI_OP_RGBA, px.r(), px.g(), px.b(), px.a_or(0xff)]);
-                }
+                buf = px.encode_into(px_prev, buf);
             }
             px_prev = px;
         }
     }
 
-    buf = buf.write(QOI_PADDING);
+    buf = buf.write_many(&QOI_PADDING);
     Ok(out_size.saturating_sub(buf.len()))
 }
 

@@ -1,3 +1,6 @@
+use crate::consts::{QOI_OP_DIFF, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA};
+use crate::utils::Writer;
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct Pixel<const N: usize>(pub [u8; N]);
@@ -67,28 +70,6 @@ impl<const N: usize> Pixel<N> {
     }
 
     #[inline]
-    pub const fn from_rgb(px: Pixel<3>, with_a: u8) -> Self {
-        let mut i = 0;
-        let mut out = Self::new();
-        while i < 3 {
-            out.0[i] = px.0[i];
-            i += 1;
-        }
-        out.with_a(with_a)
-    }
-
-    #[inline]
-    pub const fn from_array<const M: usize>(arr: [u8; M]) -> Self {
-        let mut i = 0;
-        let mut out = Self::new();
-        while i < N && i < M {
-            out.0[i] = arr[i];
-            i += 1;
-        }
-        out
-    }
-
-    #[inline]
     pub const fn r(self) -> u8 {
         self.0[0]
     }
@@ -134,6 +115,36 @@ impl<const N: usize> Pixel<N> {
         self.0[0] = self.0[0].wrapping_add(r);
         self.0[1] = self.0[1].wrapping_add(g);
         self.0[2] = self.0[2].wrapping_add(b);
+    }
+
+    #[inline]
+    pub fn encode_into<W: Writer>(&self, px_prev: Self, buf: W) -> W::Output {
+        if N == 3 || self.a_or(0) == px_prev.a_or(0) {
+            let vg = self.g().wrapping_sub(px_prev.g());
+            let vg_32 = vg.wrapping_add(32);
+            if vg_32 | 63 == 63 {
+                let vr = self.r().wrapping_sub(px_prev.r());
+                let vb = self.b().wrapping_sub(px_prev.b());
+                let vg_r = vr.wrapping_sub(vg);
+                let vg_b = vb.wrapping_sub(vg);
+                let (vr_2, vg_2, vb_2) =
+                    (vr.wrapping_add(2), vg.wrapping_add(2), vb.wrapping_add(2));
+                if vr_2 | vg_2 | vb_2 | 3 == 3 {
+                    buf.write_one(QOI_OP_DIFF | vr_2 << 4 | vg_2 << 2 | vb_2)
+                } else {
+                    let (vg_r_8, vg_b_8) = (vg_r.wrapping_add(8), vg_b.wrapping_add(8));
+                    if vg_r_8 | vg_b_8 | 15 == 15 {
+                        buf.write_many(&[QOI_OP_LUMA | vg_32, vg_r_8 << 4 | vg_b_8])
+                    } else {
+                        buf.write_many(&[QOI_OP_RGB, self.r(), self.g(), self.b()])
+                    }
+                }
+            } else {
+                buf.write_many(&[QOI_OP_RGB, self.r(), self.g(), self.b()])
+            }
+        } else {
+            buf.write_many(&[QOI_OP_RGBA, self.r(), self.g(), self.b(), self.a_or(0xff)])
+        }
     }
 }
 
