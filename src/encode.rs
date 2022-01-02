@@ -1,17 +1,18 @@
+use std::io::Write;
+
 use crate::consts::{QOI_HEADER_SIZE, QOI_OP_INDEX, QOI_OP_RUN, QOI_PADDING, QOI_PADDING_SIZE};
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
 use crate::types::{Channels, ColorSpace};
-use crate::utils::{unlikely, BytesMut};
+use crate::utils::{unlikely, BytesMut, GenericWriter, Writer};
 
 #[allow(clippy::cast_possible_truncation)]
-fn qoi_encode_impl<const N: usize>(out: &mut [u8], data: &[u8]) -> Result<usize>
+fn qoi_encode_impl<W: Writer, const N: usize>(mut buf: W, data: &[u8]) -> Result<usize>
 where
     Pixel<N>: SupportedChannels,
 {
-    let out_size = out.len();
-    let mut buf = BytesMut::new(out);
+    let cap = buf.capacity();
 
     let mut index = [Pixel::new(); 256];
     let mut px_prev = Pixel::new().with_a(0xff);
@@ -25,36 +26,36 @@ where
         if px == px_prev {
             run += 1;
             if run == 62 || unlikely(i == n_pixels - 1) {
-                buf = buf.write_one(QOI_OP_RUN | (run - 1));
+                buf = buf.write_one(QOI_OP_RUN | (run - 1))?;
                 run = 0;
             }
         } else {
             if run != 0 {
-                buf = buf.write_one(QOI_OP_RUN | (run - 1));
+                buf = buf.write_one(QOI_OP_RUN | (run - 1))?;
                 run = 0;
             }
             let index_pos = px.hash_index();
             let index_px = &mut index[index_pos as usize];
             let px_rgba = px.as_rgba(0xff);
             if *index_px == px_rgba {
-                buf = buf.write_one(QOI_OP_INDEX | index_pos);
+                buf = buf.write_one(QOI_OP_INDEX | index_pos)?;
             } else {
                 *index_px = px_rgba;
-                buf = px.encode_into(px_prev, buf);
+                buf = px.encode_into(px_prev, buf)?;
             }
             px_prev = px;
         }
     }
 
-    buf = buf.write_many(&QOI_PADDING);
-    Ok(out_size.saturating_sub(buf.len()))
+    buf = buf.write_many(&QOI_PADDING)?;
+    Ok(cap.saturating_sub(buf.capacity()))
 }
 
 #[inline]
-fn qoi_encode_impl_all(out: &mut [u8], data: &[u8], channels: Channels) -> Result<usize> {
+fn qoi_encode_impl_all<W: Writer>(out: W, data: &[u8], channels: Channels) -> Result<usize> {
     match channels {
-        Channels::Rgb => qoi_encode_impl::<3>(out, data),
-        Channels::Rgba => qoi_encode_impl::<4>(out, data),
+        Channels::Rgb => qoi_encode_impl::<_, 3>(out, data),
+        Channels::Rgba => qoi_encode_impl::<_, 4>(out, data),
     }
 }
 
@@ -130,7 +131,7 @@ impl<'a> QoiEncoder<'a> {
         }
         let (head, tail) = buf.split_at_mut(QOI_HEADER_SIZE); // can't panic
         head.copy_from_slice(&self.header.encode());
-        let n_written = qoi_encode_impl_all(tail, self.data, self.header.channels)?;
+        let n_written = qoi_encode_impl_all(BytesMut::new(tail), self.data, self.header.channels)?;
         Ok(QOI_HEADER_SIZE + n_written)
     }
 
@@ -140,5 +141,13 @@ impl<'a> QoiEncoder<'a> {
         let size = self.encode_to_buf(&mut out)?;
         out.truncate(size);
         Ok(out)
+    }
+
+    #[inline]
+    pub fn encode_to_stream<W: Write>(&self, writer: &mut W) -> Result<usize> {
+        writer.write_all(&self.header.encode())?;
+        let n_written =
+            qoi_encode_impl_all(GenericWriter::new(writer), self.data, self.header.channels)?;
+        Ok(n_written + QOI_HEADER_SIZE)
     }
 }

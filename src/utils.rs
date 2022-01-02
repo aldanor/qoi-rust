@@ -1,3 +1,7 @@
+use std::io::Write;
+
+use crate::error::Result;
+
 #[inline(always)]
 #[cold]
 pub const fn cold() {}
@@ -19,24 +23,53 @@ pub const fn unlikely(b: bool) -> bool {
     b
 }
 
-pub trait Writer {
-    type Output;
+pub trait Writer: Sized {
+    fn write_one(self, v: u8) -> Result<Self>;
+    fn write_many(self, v: &[u8]) -> Result<Self>;
+    fn capacity(&self) -> usize;
+}
 
-    fn write_one(self, v: u8) -> Self::Output;
-    fn write_many(self, v: &[u8]) -> Self::Output;
+pub struct GenericWriter<W> {
+    writer: W,
+    n_written: usize,
+}
+
+impl<W: Write> GenericWriter<W> {
+    pub fn new(writer: W) -> Self {
+        Self { writer, n_written: 0 }
+    }
+}
+
+impl<W: Write> Writer for GenericWriter<W> {
+    fn write_one(mut self, v: u8) -> Result<Self> {
+        self.n_written += 1;
+        self.writer.write_all(&[v]).map(|_| self).map_err(Into::into)
+    }
+
+    fn write_many(mut self, v: &[u8]) -> Result<Self> {
+        self.n_written += v.len();
+        self.writer.write_all(v).map(|_| self).map_err(Into::into)
+    }
+
+    fn capacity(&self) -> usize {
+        usize::MAX - self.n_written
+    }
 }
 
 impl<'a> Writer for BytesMut<'a> {
-    type Output = BytesMut<'a>;
-
     #[inline]
-    fn write_one(self, v: u8) -> Self {
-        BytesMut::write_one(self, v)
+    fn write_one(self, v: u8) -> Result<Self> {
+        Ok(BytesMut::write_one(self, v))
     }
 
     #[inline]
-    fn write_many(self, v: &[u8]) -> Self {
-        BytesMut::write_many(self, v)
+    fn write_many(self, v: &[u8]) -> Result<Self> {
+        Ok(BytesMut::write_many(self, v))
+    }
+
+    #[inline]
+    fn capacity(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -63,10 +96,5 @@ impl<'a> BytesMut<'a> {
         let (head, tail) = self.0.split_at_mut(v.len());
         head.copy_from_slice(v);
         Self(tail)
-    }
-
-    #[inline]
-    pub const fn len(&self) -> usize {
-        self.0.len()
     }
 }

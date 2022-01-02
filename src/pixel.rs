@@ -1,4 +1,5 @@
 use crate::consts::{QOI_OP_DIFF, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA};
+use crate::error::Result;
 use crate::utils::Writer;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -118,7 +119,7 @@ impl<const N: usize> Pixel<N> {
     }
 
     #[inline]
-    pub fn encode_into<W: Writer>(&self, px_prev: Self, buf: W) -> W::Output {
+    pub fn encode_into<W: Writer>(&self, px_prev: Self, buf: W) -> Result<W> {
         if N == 3 || self.a_or(0) == px_prev.a_or(0) {
             let vg = self.g().wrapping_sub(px_prev.g());
             let vg_32 = vg.wrapping_add(32);
