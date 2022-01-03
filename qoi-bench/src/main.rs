@@ -381,7 +381,9 @@ fn bench_suite(files: &[PathBuf], seconds: f64, use_median: bool) -> Result<()> 
             }
         }
     }
-    totals.report(use_median);
+    if totals.results.len() > 1 {
+        totals.report(use_median);
+    }
     Ok(())
 }
 
