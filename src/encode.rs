@@ -8,7 +8,7 @@ use crate::pixel::{Pixel, SupportedChannels};
 use crate::types::{Channels, ColorSpace};
 use crate::utils::{unlikely, BytesMut, GenericWriter, Writer};
 
-#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_possible_truncation, unused_assignments)]
 fn qoi_encode_impl<W: Writer, const N: usize>(mut buf: W, data: &[u8]) -> Result<usize>
 where
     Pixel<N>: SupportedChannels,
@@ -17,6 +17,7 @@ where
 
     let mut index = [Pixel::new(); 256];
     let mut px_prev = Pixel::new().with_a(0xff);
+    let mut hash_prev = Pixel::<N>::new().with_a(0xff).hash_index();
     let mut run = 0_u8;
     let mut px = Pixel::<N>::new().with_a(0xff);
 
@@ -32,14 +33,25 @@ where
             }
         } else {
             if run != 0 {
-                buf = buf.write_one(QOI_OP_RUN | (run - 1))?;
+                #[cfg(not(feature = "reference"))]
+                {
+                    buf = buf.write_one(if run == 1 {
+                        QOI_OP_INDEX | (hash_prev as u8)
+                    } else {
+                        QOI_OP_RUN | (run - 1)
+                    })?;
+                }
+                #[cfg(feature = "reference")]
+                {
+                    buf = buf.write_one(QOI_OP_RUN | (run - 1))?;
+                }
                 run = 0;
             }
-            let index_pos = px.hash_index();
-            let index_px = &mut index[index_pos as usize];
+            hash_prev = px.hash_index();
+            let index_px = &mut index[hash_prev as usize];
             let px_rgba = px.as_rgba(0xff);
             if *index_px == px_rgba {
-                buf = buf.write_one(QOI_OP_INDEX | index_pos)?;
+                buf = buf.write_one(QOI_OP_INDEX | hash_prev)?;
             } else {
                 *index_px = px_rgba;
                 buf = px.encode_into(px_prev, buf)?;
