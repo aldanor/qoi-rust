@@ -1,6 +1,4 @@
-# qoi-fast
-
-VERY fast encoder/decoder for [QOI image format](https://qoiformat.org/), implemented in pure Rust.
+# [qoi-fast](https://crates.io/crates/qoi-fast)
 
 [![Build](https://github.com/aldanor/qoi-fast/workflows/CI/badge.svg)](https://github.com/aldanor/qoi-fast/actions?query=branch%3Amaster)
 [![Latest Version](https://img.shields.io/crates/v/qoi-fast.svg)](https://crates.io/crates/qoi-fast)
@@ -9,13 +7,16 @@ VERY fast encoder/decoder for [QOI image format](https://qoiformat.org/), implem
 [![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance)
 
+Fast encoder/decoder for [QOI image format](https://qoiformat.org/), implemented in pure and safe Rust.
+
 Quick summary:
 
 - One of the [fastest](https://github.com/aldanor/qoi-fast#benchmarks)
   QOI encoders/decoders out there.
-- Compliant with the latest QOI [format specification](https://qoiformat.org/qoi-specification.pdf).
+- Compliant with the [latest](https://qoiformat.org/qoi-specification.pdf) QOI format specification.
 - Zero unsafe code.
 - Supports decoding from / encoding to `std::io` streams directly.
+- `no_std` support.
 - Roundtrip-tested vs the reference C implementation; fuzz-tested.
 
 ### Examples
@@ -33,8 +34,8 @@ benchmarks timings collected on Apple M1 (1782 images, 1187 MB total):
 ```
 codec          decode:ms    encode:ms  decode:mp/s  encode:mp/s
 
-qoi-c            4409.34      5531.82        282.3        225.0
-qoi-fast         3105.60      4726.19        400.8        263.3
+qoi-c            4406.63      5515.80        282.4        225.6
+qoi-fast         3071.49      4545.08        405.2        273.8
 ```
 
 ### License
