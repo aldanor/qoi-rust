@@ -38,6 +38,14 @@ qoi-c            4406.63      5515.80        282.4        225.6
 qoi-fast         3071.49      4545.08        405.2        273.8
 ```
 
+### `no_std`
+
+This crate supports `no_std` mode. By default, std is enabled via the `std`
+feature. You can deactivate the `default-features` to target core instead.
+In that case anything related to `std::io`, `std::error::Error` and heap
+allocations is disabled. There is an additional `alloc` feature that can
+be activated to bring back the support for heap allocations.
+
 ### License
 
 This project is dual-licensed under MIT and Apache 2.0.
