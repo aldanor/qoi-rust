@@ -98,6 +98,7 @@ fn test_reference_images() -> Result<()> {
         println!("{} {} {} {}", png_name, img.width, img.height, img.channels);
         let encoded = qoi_encode_to_vec(&img.data, img.width, img.height)?;
         let expected = fs::read(qoi_path)?;
+        assert_eq!(encoded.len(), expected.len()); // this should match regardless
         cfg_if! {
             if #[cfg(feature = "reference")] {
                 compare_slices(&png_name, "encoding", &encoded, &expected)?;
