@@ -8,11 +8,21 @@ use crate::error::{Error, Result};
 use crate::types::{Channels, ColorSpace};
 use crate::utils::unlikely;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// QOI image header.
+///
+/// ### Notes
+/// A valid image header must satisfy the following conditions:
+/// * Both width and height must be non-zero.
+/// * Maximum number of pixels is 400Mp (=4e8 pixels).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Header {
+    /// Image width in pixels
     pub width: u32,
+    /// Image height in pixels
     pub height: u32,
+    /// Number of 8-bit channels per pixel
     pub channels: Channels,
+    /// Color space (informative field, doesn't affect encoding)
     pub colorspace: ColorSpace,
 }
 
@@ -29,6 +39,7 @@ impl Default for Header {
 }
 
 impl Header {
+    /// Creates a new header and validates image dimensions.
     #[inline]
     pub const fn try_new(
         width: u32, height: u32, channels: Channels, colorspace: ColorSpace,
@@ -41,23 +52,21 @@ impl Header {
         Ok(Self { width, height, channels, colorspace })
     }
 
+    /// Creates a new header with modified channels.
     #[inline]
     pub const fn with_channels(mut self, channels: Channels) -> Self {
         self.channels = channels;
         self
     }
 
+    /// Creates a new header with modified color space.
     #[inline]
     pub const fn with_colorspace(mut self, colorspace: ColorSpace) -> Self {
         self.colorspace = colorspace;
         self
     }
 
-    #[inline]
-    pub const fn encoded_size() -> usize {
-        QOI_HEADER_SIZE
-    }
-
+    /// Serializes the header into a bytes array.
     #[inline]
     pub(crate) fn encode(&self) -> [u8; QOI_HEADER_SIZE] {
         let mut out = [0; QOI_HEADER_SIZE];
@@ -69,6 +78,7 @@ impl Header {
         out
     }
 
+    /// Deserializes the header from a byte array.
     #[inline]
     pub(crate) fn decode(data: impl AsRef<[u8]>) -> Result<Self> {
         let data = data.as_ref();
@@ -87,16 +97,21 @@ impl Header {
         Self::try_new(width, height, channels, colorspace)
     }
 
+    /// Returns a number of pixels in the image.
     #[inline]
     pub const fn n_pixels(&self) -> usize {
         (self.width as usize).saturating_mul(self.height as usize)
     }
 
+    /// Returns the total number of bytes in the image.
     #[inline]
     pub const fn n_bytes(&self) -> usize {
         self.n_pixels() * self.channels.as_u8() as usize
     }
 
+    /// Returns the maximum number of bytes the image can possibly occupy when QOI-encoded.
+    ///
+    /// This comes useful when pre-allocating a buffer to encode the image into.
     #[inline]
     pub fn encoded_size_limit(&self) -> usize {
         encoded_size_limit(self.width, self.height, self.channels)
