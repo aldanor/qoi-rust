@@ -45,6 +45,10 @@ qoi-c            4389.75      5524.18        283.5        225.3
 qoi-fast         3026.68      4304.26        411.2        289.2
 ```
 
+Benchmarks have also been run for all of the other Rust implementations
+of QOI for comparison purposes and, at the time of writing this document,
+this library proved to be the fastest one by a noticeable margin.
+
 ### `no_std`
 
 This crate supports `no_std` mode. By default, std is enabled via the `std`
