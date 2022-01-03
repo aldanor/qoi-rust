@@ -6,31 +6,24 @@ use crate::consts::QOI_MAGIC;
 /// Errors that can occur during encoding or decoding.
 #[derive(Debug)]
 pub enum Error {
-    InvalidMagic {
-        magic: u32,
-    },
-    InvalidChannels {
-        channels: u8,
-    },
-    InvalidColorSpace {
-        colorspace: u8,
-    },
-    InvalidImageDimensions {
-        width: u32,
-        height: u32,
-    },
-    InvalidImageLength {
-        size: usize,
-        width: u32,
-        height: u32,
-    },
-    OutputBufferTooSmall {
-        size: usize,
-        required: usize,
-    },
+    /// Leading 4 magic bytes don't match when decoding
+    InvalidMagic { magic: u32 },
+    /// Invalid number of channels: expected 3 or 4
+    InvalidChannels { channels: u8 },
+    /// Invalid color space: expected 0 or 1
+    InvalidColorSpace { colorspace: u8 },
+    /// Invalid image dimensions: can't be empty or larger than 400Mp
+    InvalidImageDimensions { width: u32, height: u32 },
+    /// Image dimensions are inconsistent with image buffer length
+    InvalidImageLength { size: usize, width: u32, height: u32 },
+    /// Output buffer is too small to fit encoded/decoded image
+    OutputBufferTooSmall { size: usize, required: usize },
+    /// Input buffer ended unexpectedly before decoding was finished
     UnexpectedBufferEnd,
+    /// Invalid stream end marker encountered when decoding
     InvalidPadding,
     #[cfg(feature = "std")]
+    /// Generic I/O error from the wrapped reader/writer
     IoError(std::io::Error),
 }
 
