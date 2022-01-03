@@ -7,7 +7,7 @@ use crate::utils::unlikely;
 ///
 /// Note: the color space is purely informative. Although it is saved to the
 /// file header, it does not affect encoding/decoding in any way.
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum ColorSpace {
     /// sRGB with linear alpha
@@ -56,7 +56,7 @@ impl TryFrom<u8> for ColorSpace {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum Channels {
     /// Three 8-bit channels (RGB)
