@@ -3,7 +3,7 @@ use core::convert::TryInto;
 use bytemuck::cast_slice;
 
 use crate::consts::{QOI_HEADER_SIZE, QOI_MAGIC, QOI_PIXELS_MAX};
-use crate::encode_size_limit;
+use crate::encode_max_len;
 use crate::error::{Error, Result};
 use crate::types::{Channels, ColorSpace};
 use crate::utils::unlikely;
@@ -102,17 +102,19 @@ impl Header {
         (self.width as usize).saturating_mul(self.height as usize)
     }
 
-    /// Returns the total number of bytes in the image.
+    /// Returns the total number of bytes in the raw pixel array.
+    ///
+    /// This may come useful when pre-allocating a buffer to decode the image into.
     #[inline]
     pub const fn n_bytes(&self) -> usize {
         self.n_pixels() * self.channels.as_u8() as usize
     }
 
-    /// Returns the maximum number of bytes the image can possibly occupy when QOI-encoded.
+    /// The maximum number of bytes the encoded image will take.
     ///
-    /// This comes useful when pre-allocating a buffer to encode the image into.
+    /// Can be used to pre-allocate the buffer to encode the image into.
     #[inline]
-    pub fn encode_size_limit(&self) -> usize {
-        encode_size_limit(self.width, self.height, self.channels)
+    pub fn encode_max_len(&self) -> usize {
+        encode_max_len(self.width, self.height, self.channels)
     }
 }

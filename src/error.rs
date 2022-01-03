@@ -27,7 +27,7 @@ pub enum Error {
     IoError(std::io::Error),
 }
 
-/// Alias for `Result` with the error type `qoi_fast::Error`.
+/// Alias for [`Result`](std::result::Result) with the error type of [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
 
 impl Display for Error {

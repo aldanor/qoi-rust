@@ -106,6 +106,10 @@ fn decode_impl_slice_all(
     }
 }
 
+/// Decode the image into a pre-allocated buffer.
+///
+/// Note: the resulting number of channels will match the header. In order to change
+/// the number of channels, use [`Decoder::with_channels`].
 #[inline]
 pub fn decode_to_buf(buf: impl AsMut<[u8]>, data: impl AsRef<[u8]>) -> Result<Header> {
     let mut decoder = Decoder::new(&data)?;
@@ -113,6 +117,10 @@ pub fn decode_to_buf(buf: impl AsMut<[u8]>, data: impl AsRef<[u8]>) -> Result<He
     Ok(*decoder.header())
 }
 
+/// Decode the image into a newly allocated vector.
+///
+/// Note: the resulting number of channels will match the header. In order to change
+/// the number of channels, use [`Decoder::with_channels`].
 #[cfg(any(feature = "std", feature = "alloc"))]
 #[inline]
 pub fn decode_to_vec(data: impl AsRef<[u8]>) -> Result<(Header, Vec<u8>)> {
@@ -121,6 +129,7 @@ pub fn decode_to_vec(data: impl AsRef<[u8]>) -> Result<(Header, Vec<u8>)> {
     Ok((*decoder.header(), out))
 }
 
+/// Decode the image header from a slice of bytes.
 #[inline]
 pub fn decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
     Header::decode(data)
@@ -264,6 +273,7 @@ impl<R: Read> Reader for R {
     }
 }
 
+/// Decode QOI images from slices or from streams.
 #[derive(Clone)]
 pub struct Decoder<R> {
     reader: R,
@@ -272,11 +282,19 @@ pub struct Decoder<R> {
 }
 
 impl<'a> Decoder<Bytes<'a>> {
+    /// Creates a new decoder from a slice of bytes.
+    ///
+    /// The header will be decoded immediately upon construction.
+    ///
+    /// Note: this provides the most efficient decoding, but requires the source data to
+    /// be loaded in memory in order to decode it. In order to decode from a generic
+    /// stream, use [`Decoder::from_stream`] instead.
     #[inline]
     pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized)) -> Result<Self> {
         Self::new_impl(Bytes::new(data.as_ref()))
     }
 
+    /// Returns the undecoded tail of the input slice of bytes.
     #[inline]
     pub const fn data(&self) -> &[u8] {
         self.reader.as_slice()
@@ -285,16 +303,24 @@ impl<'a> Decoder<Bytes<'a>> {
 
 #[cfg(feature = "std")]
 impl<R: Read> Decoder<R> {
+    /// Creates a new decoder from a generic reader that implements [`Read`](std::io::Read).
+    ///
+    /// The header will be decoded immediately upon construction.
+    ///
+    /// Note: while it's possible to pass a `&[u8]` slice here since it implements `Read`, it
+    /// would be more efficient to use a specialized constructor instead: [`Decoder::new`].
     #[inline]
     pub fn from_stream(reader: R) -> Result<Self> {
         Self::new_impl(reader)
     }
 
+    /// Returns an immutable reference to the underlying reader.
     #[inline]
     pub fn reader(&self) -> &R {
         &self.reader
     }
 
+    /// Consumes the decoder and returns the underlying reader back.
     #[inline]
     pub fn into_reader(self) -> R {
         self.reader
@@ -308,25 +334,47 @@ impl<R: Reader> Decoder<R> {
         Ok(Self { reader, header, channels: header.channels })
     }
 
+    /// Returns a new decoder with modified number of channels.
+    ///
+    /// By default, the number of channels in the decoded image will be equal
+    /// to whatever is specified in the header. However, it is also possible
+    /// to decode RGB into RGBA (in which case the alpha channel will be set
+    /// to 255), and vice versa (in which case the alpha channel will be ignored).
+    #[inline]
     pub fn with_channels(mut self, channels: Channels) -> Self {
         self.channels = channels;
         self
     }
 
+    /// Returns the number of channels in the decoded image.
+    ///
+    /// Note: this may differ from the number of channels specified in the header.
     #[inline]
     pub fn channels(&self) -> Channels {
         self.channels
     }
 
+    /// Returns the decoded image header.
     #[inline]
     pub fn header(&self) -> &Header {
         &self.header
     }
 
+    /// The number of bytes the decoded image will take.
+    ///
+    /// Can be used to pre-allocate the buffer to decode the image into.
+    #[inline]
+    pub fn required_buf_len(&self) -> usize {
+        self.header.n_pixels().saturating_mul(self.channels.as_u8() as usize)
+    }
+
+    /// Decodes the image to a pre-allocated buffer and returns the number of bytes written.
+    ///
+    /// The minimum size of the buffer can be found via [`Decoder::required_buf_len`].
     #[inline]
     pub fn decode_to_buf(&mut self, mut buf: impl AsMut<[u8]>) -> Result<usize> {
         let buf = buf.as_mut();
-        let size = self.header.n_pixels() * self.channels.as_u8() as usize;
+        let size = self.required_buf_len();
         if unlikely(buf.len() < size) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
         }
@@ -334,6 +382,7 @@ impl<R: Reader> Decoder<R> {
         Ok(size)
     }
 
+    /// Decodes the image into a newly allocated vector of bytes and returns it.
     #[cfg(any(feature = "std", feature = "alloc"))]
     #[inline]
     pub fn decode_to_vec(&mut self) -> Result<Vec<u8>> {

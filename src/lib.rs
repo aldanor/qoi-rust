@@ -31,7 +31,7 @@ pub use crate::decode::{decode_header, decode_to_buf, Decoder};
 
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use crate::encode::encode_to_vec;
-pub use crate::encode::{encode_size_limit, encode_to_buf, Encoder};
+pub use crate::encode::{encode_max_len, encode_to_buf, Encoder};
 
 pub use crate::error::{Error, Result};
 pub use crate::header::Header;

@@ -43,6 +43,7 @@ where
             if run != 0 {
                 #[cfg(not(feature = "reference"))]
                 {
+                    // credits for the original idea: @zakarumych
                     buf = buf.write_one(if run == 1 && i != 1 {
                         QOI_OP_INDEX | (hash_prev as u8)
                     } else {
@@ -80,8 +81,11 @@ fn encode_impl_all<W: Writer>(out: W, data: &[u8], channels: Channels) -> Result
     }
 }
 
+/// The maximum number of bytes the encoded image will take.
+///
+/// Can be used to pre-allocate the buffer to encode the image into.
 #[inline]
-pub fn encode_size_limit(width: u32, height: u32, channels: impl Into<u8>) -> usize {
+pub fn encode_max_len(width: u32, height: u32, channels: impl Into<u8>) -> usize {
     let (width, height) = (width as usize, height as usize);
     let n_pixels = width.saturating_mul(height);
     QOI_HEADER_SIZE
@@ -90,6 +94,9 @@ pub fn encode_size_limit(width: u32, height: u32, channels: impl Into<u8>) -> us
         + QOI_PADDING_SIZE
 }
 
+/// Encode the image into a pre-allocated buffer.
+///
+/// Returns the total number of bytes written.
 #[inline]
 pub fn encode_to_buf(
     buf: impl AsMut<[u8]>, data: impl AsRef<[u8]>, width: u32, height: u32,
@@ -97,18 +104,24 @@ pub fn encode_to_buf(
     Encoder::new(&data, width, height)?.encode_to_buf(buf)
 }
 
+/// Encode the image into a newly allocated vector.
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[inline]
 pub fn encode_to_vec(data: impl AsRef<[u8]>, width: u32, height: u32) -> Result<Vec<u8>> {
     Encoder::new(&data, width, height)?.encode_to_vec()
 }
 
+/// Encode QOI images into buffers or into streams.
 pub struct Encoder<'a> {
     data: &'a [u8],
     header: Header,
 }
 
 impl<'a> Encoder<'a> {
+    /// Creates a new encoder from a given array of pixel data and image dimensions.
+    ///
+    /// The number of channels will be inferred automatically (the valid values
+    /// are 3 or 4). The color space will be set to sRGB by default.
     #[inline]
     #[allow(clippy::cast_possible_truncation)]
     pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized), width: u32, height: u32) -> Result<Self> {
@@ -124,31 +137,43 @@ impl<'a> Encoder<'a> {
         Ok(Self { data, header })
     }
 
+    /// Returns a new encoder with modified color space.
+    ///
+    /// Note: the color space doesn't affect encoding or decoding in any way, it's
+    /// a purely informative field that's stored in the image header.
     #[inline]
     pub const fn with_colorspace(mut self, colorspace: ColorSpace) -> Self {
         self.header = self.header.with_colorspace(colorspace);
         self
     }
 
+    /// Returns the inferred number of channels.
     #[inline]
     pub const fn channels(&self) -> Channels {
         self.header.channels
     }
 
+    /// Returns the header that will be stored in the encoded image.
     #[inline]
     pub const fn header(&self) -> &Header {
         &self.header
     }
 
+    /// The maximum number of bytes the encoded image will take.
+    ///
+    /// Can be used to pre-allocate the buffer to encode the image into.
     #[inline]
-    pub fn encode_size_limit(&self) -> usize {
-        self.header.encode_size_limit()
+    pub fn required_buf_len(&self) -> usize {
+        self.header.encode_max_len()
     }
 
+    /// Encodes the image to a pre-allocated buffer and returns the number of bytes written.
+    ///
+    /// The minimum size of the buffer can be found via [`Encoder::required_buf_len`].
     #[inline]
     pub fn encode_to_buf(&self, mut buf: impl AsMut<[u8]>) -> Result<usize> {
         let buf = buf.as_mut();
-        let size_required = self.encode_size_limit();
+        let size_required = self.required_buf_len();
         if unlikely(buf.len() < size_required) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size_required });
         }
@@ -158,15 +183,20 @@ impl<'a> Encoder<'a> {
         Ok(QOI_HEADER_SIZE + n_written)
     }
 
+    /// Encodes the image into a newly allocated vector of bytes and returns it.
     #[cfg(any(feature = "alloc", feature = "std"))]
     #[inline]
     pub fn encode_to_vec(&self) -> Result<Vec<u8>> {
-        let mut out = vec![0_u8; self.encode_size_limit()];
+        let mut out = vec![0_u8; self.required_buf_len()];
         let size = self.encode_to_buf(&mut out)?;
         out.truncate(size);
         Ok(out)
     }
 
+    /// Encodes the image directly to a generic writer that implements [`Write`](std::io::Write).
+    ///
+    /// Note: while it's possible to pass a `&mut [u8]` slice here since it implements `Write`,
+    /// it would more effficient to use a specialized method instead: [`Encoder::encode_to_buf`].
     #[cfg(feature = "std")]
     #[inline]
     pub fn encode_to_stream<W: Write>(&self, writer: &mut W) -> Result<usize> {
