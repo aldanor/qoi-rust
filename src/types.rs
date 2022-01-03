@@ -24,6 +24,10 @@ impl ColorSpace {
     pub const fn is_linear(self) -> bool {
         matches!(self, Self::Linear)
     }
+
+    pub const fn as_u8(self) -> u8 {
+        self as u8
+    }
 }
 
 impl Default for ColorSpace {
