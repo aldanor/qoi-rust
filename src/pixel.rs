@@ -14,10 +14,14 @@ impl<const N: usize> Pixel<N> {
 
     #[inline]
     pub fn read(&mut self, s: &[u8]) {
-        let mut i = 0;
-        while i < N {
-            self.0[i] = s[i];
-            i += 1;
+        if s.len() == N {
+            let mut i = 0;
+            while i < N {
+                self.0[i] = s[i];
+                i += 1;
+            }
+        } else {
+            unreachable!();
         }
     }
 
