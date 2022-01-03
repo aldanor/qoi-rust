@@ -3,7 +3,7 @@ use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|input: (u16, u16, bool, &[u8])| {
     let (w, h, is_4, data) = input;
-    let (w, h) = (w % 300, h % 300);
+    let (w, h) = (1 + w % 260, 1 + h % 260);
     let channels = if is_4 { 4 } else { 3 };
 
     let mut vec = vec![
@@ -23,15 +23,18 @@ fuzz_target!(|input: (u16, u16, bool, &[u8])| {
         0,
     ];
     vec.extend(&*data);
-    vec.extend(&[0, 0, 0, 0]);
+    vec.extend(&[0, 0, 0, 0, 0, 0, 0, 1]);
 
-    let out = qoi_fast::qoi_decode_to_vec(&vec, channels);
-    if let Ok((header, out)) = out {
-        assert_eq!(header.magic, qoi_fast::consts::QOI_MAGIC);
-        assert_eq!(header.width, w as u32);
-        assert_eq!(header.height, h as u32);
-        assert_eq!(header.channels, channels);
-        assert_eq!(header.colorspace.to_u8(), 0);
-        assert_eq!(out.len(), w as usize * h as usize * channels as usize);
+    let header_expected = qoi_fast::Header {
+        width: w as u32,
+        height: h as u32,
+        channels: qoi_fast::Channels::try_from(channels).unwrap(),
+        colorspace: qoi_fast::ColorSpace::try_from(0).unwrap(),
+    };
+    assert_eq!(qoi_fast::qoi_decode_header(&vec).unwrap(), header_expected);
+
+    if let Ok((header, out)) = qoi_fast::qoi_decode_to_vec(&vec) {
+        assert_eq!(header, header_expected);
+        assert_eq!(out.len(), header.n_bytes());
     }
 });

@@ -13,16 +13,10 @@ fuzz_target!(|input: (bool, u8, &[u8])| {
         let h = n_pixels / w;
         (w, h)
     };
-    let out = qoi_fast::qoi_encode_to_vec(
-        &data[..(w * h * channels as usize)],
-        w as u32,
-        h as u32,
-        channels,
-        0,
-    );
+    let out = qoi_fast::qoi_encode_to_vec(&data[..(w * h * channels as usize)], w as u32, h as u32);
     if w * h != 0 {
         let out = out.unwrap();
-        assert!(out.len() <= qoi_fast::encode_size_required(w as u32, h as u32, channels));
+        assert!(out.len() <= qoi_fast::encoded_size_limit(w as u32, h as u32, channels));
     } else {
         assert!(out.is_err());
     }
