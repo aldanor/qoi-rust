@@ -35,7 +35,7 @@ where
             if run != 0 {
                 #[cfg(not(feature = "reference"))]
                 {
-                    buf = buf.write_one(if run == 1 {
+                    buf = buf.write_one(if run == 1 && i != 1 {
                         QOI_OP_INDEX | (hash_prev as u8)
                     } else {
                         QOI_OP_RUN | (run - 1)
