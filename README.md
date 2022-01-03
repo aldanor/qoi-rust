@@ -22,7 +22,14 @@ Quick summary:
 ### Examples
 
 ```rust
-todo!();
+use qoi_fast::{encode_to_vec, decode_to_vec};
+
+let encoded = encode_to_vec(&pixels, width, height)?;
+let (header, decoded) = decode_to_vec(&encoded)?;
+
+assert_eq!(header.width, width);
+assert_eq!(header.height, height);
+assert_eq!(decoded, pixels);
 ```
 
 ### Benchmarks
