@@ -30,6 +30,52 @@ pub trait Writer: Sized {
     fn capacity(&self) -> usize;
 }
 
+pub struct BytesMut<'a>(&'a mut [u8]);
+
+impl<'a> BytesMut<'a> {
+    pub fn new(buf: &'a mut [u8]) -> Self {
+        Self(buf)
+    }
+
+    #[inline]
+    pub fn write_one(self, v: u8) -> Self {
+        if let Some((first, tail)) = self.0.split_first_mut() {
+            *first = v;
+            Self(tail)
+        } else {
+            unreachable!()
+        }
+    }
+
+    #[inline]
+    pub fn write_many(self, v: &[u8]) -> Self {
+        if v.len() <= self.0.len() {
+            let (head, tail) = self.0.split_at_mut(v.len());
+            head.copy_from_slice(v);
+            Self(tail)
+        } else {
+            unreachable!()
+        }
+    }
+}
+
+impl<'a> Writer for BytesMut<'a> {
+    #[inline]
+    fn write_one(self, v: u8) -> Result<Self> {
+        Ok(BytesMut::write_one(self, v))
+    }
+
+    #[inline]
+    fn write_many(self, v: &[u8]) -> Result<Self> {
+        Ok(BytesMut::write_many(self, v))
+    }
+
+    #[inline]
+    fn capacity(&self) -> usize {
+        self.0.len()
+    }
+}
+
 #[cfg(feature = "std")]
 pub struct GenericWriter<W> {
     writer: W,
@@ -57,51 +103,5 @@ impl<W: Write> Writer for GenericWriter<W> {
 
     fn capacity(&self) -> usize {
         usize::MAX - self.n_written
-    }
-}
-
-impl<'a> Writer for BytesMut<'a> {
-    #[inline]
-    fn write_one(self, v: u8) -> Result<Self> {
-        Ok(BytesMut::write_one(self, v))
-    }
-
-    #[inline]
-    fn write_many(self, v: &[u8]) -> Result<Self> {
-        Ok(BytesMut::write_many(self, v))
-    }
-
-    #[inline]
-    fn capacity(&self) -> usize {
-        self.0.len()
-    }
-}
-
-pub struct BytesMut<'a>(&'a mut [u8]);
-
-impl<'a> BytesMut<'a> {
-    pub fn new(buf: &'a mut [u8]) -> Self {
-        Self(buf)
-    }
-
-    #[inline]
-    pub fn write_one(self, v: u8) -> Self {
-        if let Some((first, tail)) = self.0.split_first_mut() {
-            *first = v;
-            Self(tail)
-        } else {
-            unreachable!()
-        }
-    }
-
-    #[inline]
-    pub fn write_many(self, v: &[u8]) -> Self {
-        if v.len() <= self.0.len() {
-            let (head, tail) = self.0.split_at_mut(v.len());
-            head.copy_from_slice(v);
-            Self(tail)
-        } else {
-            unreachable!()
-        }
     }
 }
