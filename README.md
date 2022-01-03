@@ -10,10 +10,31 @@ VERY fast encoder/decoder for [QOI image format](https://qoiformat.org/), implem
 
 Quick summary:
 
-- One of the fastest encoders/decoders out there.
-- Compliant with the latest QOI format specification.
-- Supports decoding from streams and encoding to streams.
-- No unsafe code.
+- One of the [fastest](https://github.com/aldanor/qoi-fast#benchmarks)
+  QOI encoders/decoders out there.
+- Compliant with the latest QOI [format specification]().
+- Zero unsafe code.
+- Supports decoding from / encoding to `std::io` streams directly.
+- Roundtrip-tested vs the reference C implementation; fuzz-tested.
+
+### Examples
+
+```rust
+todo!();
+```
+
+### Benchmarks
+
+Comparison to the reference C implementation
+(as of [00e34217](https://github.com/phoboslab/qoi/commit/00e34217)),
+benchmarks timings collected on Apple M1 (1782 images, 1187 MB total):
+
+```
+codec          decode:ms    encode:ms  decode:mp/s  encode:mp/s
+
+qoi-c            4408.43      5529.64        282.3        225.1
+qoi-fast         3202.04      4666.84        388.7        266.7
+```
 
 ### License
 
