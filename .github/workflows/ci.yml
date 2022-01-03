@@ -19,13 +19,17 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with: {profile: minimal, toolchain: '${{ matrix.rust }}', override: true}
       - run: cargo test
-  clippy:
+  reference:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust: [beta]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
-        with: {profile: minimal, toolchain: '${{ matrix.rust }}', override: true, components: clippy}
+        with: {profile: minimal, toolchain: stable, override: true}
+      - run: cargo test --features=reference
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with: {profile: minimal, toolchain: beta, override: true, components: clippy}
       - run: cargo clippy
