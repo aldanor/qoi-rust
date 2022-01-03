@@ -29,3 +29,6 @@ walkdir = "2.3"
 [lib]
 name = "qoi_fast"
 path = "src/lib.rs"
+
+[profile.test]
+opt-level = 3
