@@ -7,12 +7,13 @@ VERY fast encoder/decoder for [QOI image format](https://qoiformat.org/), implem
 [![Documentation](https://img.shields.io/docsrs/qoi-fast)](https://docs.rs/qoi-fast)
 [![Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance)
 
 Quick summary:
 
 - One of the [fastest](https://github.com/aldanor/qoi-fast#benchmarks)
   QOI encoders/decoders out there.
-- Compliant with the latest QOI [format specification]().
+- Compliant with the latest QOI [format specification](https://qoiformat.org/qoi-specification.pdf).
 - Zero unsafe code.
 - Supports decoding from / encoding to `std::io` streams directly.
 - Roundtrip-tested vs the reference C implementation; fuzz-tested.
@@ -38,5 +39,4 @@ qoi-fast         3202.04      4666.84        388.7        266.7
 
 ### License
 
-Dual-licensed under the terms of both the MIT license and the 
-Apache License (Version 2.0)
+This project is dual-licensed under MIT and Apache 2.0.

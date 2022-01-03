@@ -2,6 +2,8 @@
 name = "qoi-bench"
 version = "0.1.0"
 edition = "2018"
+license = "MIT/Apache-2.0"
+authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
 
 [dependencies]
 # internal
