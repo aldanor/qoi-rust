@@ -4,6 +4,8 @@ use core::convert::TryFrom;
 #[cfg(feature = "std")]
 use std::io::Write;
 
+use bytemuck::Pod;
+
 use crate::consts::{QOI_HEADER_SIZE, QOI_OP_INDEX, QOI_OP_RUN, QOI_PADDING, QOI_PADDING_SIZE};
 use crate::error::{Error, Result};
 use crate::header::Header;
@@ -17,6 +19,7 @@ use crate::utils::{unlikely, BytesMut, Writer};
 fn encode_impl<W: Writer, const N: usize>(mut buf: W, data: &[u8]) -> Result<usize>
 where
     Pixel<N>: SupportedChannels,
+    [u8; N]: Pod,
 {
     let cap = buf.capacity();
 
