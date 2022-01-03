@@ -52,9 +52,9 @@ where
                 }
                 run = 0;
             }
-            hash_prev = px.hash_index();
-            let index_px = &mut index[hash_prev as usize];
             let px_rgba = px.as_rgba(0xff);
+            hash_prev = px_rgba.hash_index();
+            let index_px = &mut index[hash_prev as usize];
             if *index_px == px_rgba {
                 buf = buf.write_one(QOI_OP_INDEX | hash_prev)?;
             } else {

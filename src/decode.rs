@@ -76,7 +76,8 @@ where
             }
         }
 
-        index[px.hash_index() as usize] = px;
+        let px_rgba = px.as_rgba(0xff);
+        index[px_rgba.hash_index() as usize] = px;
         *px_out = px.into();
     }
 
