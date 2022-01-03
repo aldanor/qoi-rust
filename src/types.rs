@@ -17,14 +17,17 @@ pub enum ColorSpace {
 }
 
 impl ColorSpace {
+    /// Returns true if the color space is sRGB with linear alpha.
     pub const fn is_srgb(self) -> bool {
         matches!(self, Self::Srgb)
     }
 
+    /// Returns true is all channels are linear.
     pub const fn is_linear(self) -> bool {
         matches!(self, Self::Linear)
     }
 
+    /// Converts to an integer (0 if sRGB, 1 if all linear).
     pub const fn as_u8(self) -> u8 {
         self as u8
     }
@@ -56,6 +59,7 @@ impl TryFrom<u8> for ColorSpace {
     }
 }
 
+/// Number of 8-bit channels in a pixel.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum Channels {
@@ -66,14 +70,17 @@ pub enum Channels {
 }
 
 impl Channels {
+    /// Returns true if there are 3 channels (RGB).
     pub const fn is_rgb(self) -> bool {
         matches!(self, Self::Rgb)
     }
 
+    /// Returns true if there are 4 channels (RGBA).
     pub const fn is_rgba(self) -> bool {
         matches!(self, Self::Rgba)
     }
 
+    /// Converts to an integer (3 if RGB, 4 if RGBA).
     pub const fn as_u8(self) -> u8 {
         self as u8
     }
