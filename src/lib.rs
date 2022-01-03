@@ -27,13 +27,12 @@ pub mod consts;
 
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use crate::decode::decode_to_vec;
-#[cfg(feature = "std")]
-pub use crate::decode::StreamDecoder;
 pub use crate::decode::{decode_header, decode_to_buf, Decoder};
 
 #[cfg(any(feature = "alloc", feature = "std"))]
 pub use crate::encode::encode_to_vec;
 pub use crate::encode::{encode_size_limit, encode_to_buf, Encoder};
+
 pub use crate::error::{Error, Result};
 pub use crate::header::Header;
 pub use crate::types::{Channels, ColorSpace};

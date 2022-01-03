@@ -125,68 +125,6 @@ pub fn decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
     Header::decode(data)
 }
 
-#[derive(Clone)]
-pub struct Decoder<'a> {
-    data: &'a [u8],
-    header: Header,
-    channels: Channels,
-}
-
-impl<'a> Decoder<'a> {
-    #[inline]
-    pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized)) -> Result<Self> {
-        let data = data.as_ref();
-        let header = Header::decode(data)?;
-        let data = &data[QOI_HEADER_SIZE..]; // can't panic
-        Ok(Self { data, header, channels: header.channels })
-    }
-
-    #[inline]
-    pub const fn with_channels(mut self, channels: Channels) -> Self {
-        self.channels = channels;
-        self
-    }
-
-    #[inline]
-    pub const fn channels(&self) -> Channels {
-        self.channels
-    }
-
-    #[inline]
-    pub const fn header(&self) -> &Header {
-        &self.header
-    }
-
-    #[inline]
-    pub const fn data(self) -> &'a [u8] {
-        self.data
-    }
-
-    #[inline]
-    pub fn decode_to_buf(&mut self, mut buf: impl AsMut<[u8]>) -> Result<usize> {
-        let buf = buf.as_mut();
-        let size = self.header.n_pixels() * self.channels.as_u8() as usize;
-        if unlikely(buf.len() < size) {
-            return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
-        }
-        let n_read = decode_impl_slice_all(
-            self.data,
-            buf,
-            self.channels.as_u8(),
-            self.header.channels.as_u8(),
-        )?;
-        self.data = &self.data[n_read..]; // can't panic
-        Ok(size)
-    }
-
-    #[cfg(any(feature = "std", feature = "alloc"))]
-    #[inline]
-    pub fn decode_to_vec(&mut self) -> Result<Vec<u8>> {
-        let mut out = vec![0; self.header.n_pixels() * self.channels.as_u8() as usize];
-        self.decode_to_buf(&mut out).map(|_| out)
-    }
-}
-
 #[cfg(any(feature = "std"))]
 #[inline]
 fn decode_impl_stream<R: Read, const N: usize, const RGBA: bool>(
@@ -274,20 +212,98 @@ fn decode_impl_stream_all<R: Read>(
     }
 }
 
+#[doc(hidden)]
+pub trait Reader: Sized {
+    fn decode_header(&mut self) -> Result<Header>;
+    fn decode_image(&mut self, out: &mut [u8], channels: u8, src_channels: u8) -> Result<()>;
+}
+
+struct Bytes<'a>(&'a [u8]);
+
+impl<'a> Bytes<'a> {
+    #[inline]
+    pub const fn new(buf: &'a [u8]) -> Self {
+        Self(buf)
+    }
+
+    #[inline]
+    pub const fn as_slice(&self) -> &[u8] {
+        self.0
+    }
+}
+
+impl<'a> Reader for Bytes<'a> {
+    #[inline]
+    fn decode_header(&mut self) -> Result<Header> {
+        let header = Header::decode(self.0)?;
+        self.0 = &self.0[QOI_HEADER_SIZE..]; // can't panic
+        Ok(header)
+    }
+
+    #[inline]
+    fn decode_image(&mut self, out: &mut [u8], channels: u8, src_channels: u8) -> Result<()> {
+        let n_read = decode_impl_slice_all(self.0, out, channels, src_channels)?;
+        self.0 = &self.0[n_read..];
+        Ok(())
+    }
+}
+
 #[cfg(feature = "std")]
-pub struct StreamDecoder<R> {
+impl<R: Read> Reader for R {
+    #[inline]
+    fn decode_header(&mut self) -> Result<Header> {
+        let mut b = [0; QOI_HEADER_SIZE];
+        self.read_exact(&mut b)?;
+        Header::decode(b)
+    }
+
+    #[inline]
+    fn decode_image(&mut self, out: &mut [u8], channels: u8, src_channels: u8) -> Result<()> {
+        decode_impl_stream_all(self, out, channels, src_channels)
+    }
+}
+
+#[derive(Clone)]
+pub struct Decoder<R> {
     reader: R,
     header: Header,
     channels: Channels,
 }
 
-#[cfg(feature = "std")]
-impl<R: Read> StreamDecoder<R> {
+impl<'a> Decoder<Bytes<'a>> {
     #[inline]
-    pub fn new(mut reader: R) -> Result<Self> {
-        let mut b = [0; QOI_HEADER_SIZE];
-        reader.read_exact(&mut b)?;
-        let header = Header::decode(b)?;
+    pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized)) -> Result<Self> {
+        Self::new_impl(Bytes::new(data.as_ref()))
+    }
+
+    #[inline]
+    pub const fn data(&self) -> &[u8] {
+        self.reader.as_slice()
+    }
+}
+
+#[cfg(feature = "std")]
+impl<R: Read> Decoder<R> {
+    #[inline]
+    pub fn from_stream(reader: R) -> Result<Self> {
+        Self::new_impl(reader)
+    }
+
+    #[inline]
+    pub fn reader(&self) -> &R {
+        &self.reader
+    }
+
+    #[inline]
+    pub fn into_reader(self) -> R {
+        self.reader
+    }
+}
+
+impl<R: Reader> Decoder<R> {
+    #[inline]
+    fn new_impl(mut reader: R) -> Result<Self> {
+        let header = reader.decode_header()?;
         Ok(Self { reader, header, channels: header.channels })
     }
 
@@ -307,31 +323,17 @@ impl<R: Read> StreamDecoder<R> {
     }
 
     #[inline]
-    pub fn reader(&self) -> &R {
-        &self.reader
-    }
-
-    #[inline]
-    pub fn into_reader(self) -> R {
-        self.reader
-    }
-
-    #[inline]
     pub fn decode_to_buf(&mut self, mut buf: impl AsMut<[u8]>) -> Result<usize> {
         let buf = buf.as_mut();
         let size = self.header.n_pixels() * self.channels.as_u8() as usize;
         if unlikely(buf.len() < size) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
         }
-        decode_impl_stream_all(
-            &mut self.reader,
-            buf,
-            self.channels.as_u8(),
-            self.header.channels.as_u8(),
-        )?;
+        self.reader.decode_image(buf, self.channels.as_u8(), self.header.channels.as_u8())?;
         Ok(size)
     }
 
+    #[cfg(any(feature = "std", feature = "alloc"))]
     #[inline]
     pub fn decode_to_vec(&mut self) -> Result<Vec<u8>> {
         let mut out = vec![0; self.header.n_pixels() * self.channels.as_u8() as usize];
