@@ -33,8 +33,8 @@ benchmarks timings collected on Apple M1 (1782 images, 1187 MB total):
 ```
 codec          decode:ms    encode:ms  decode:mp/s  encode:mp/s
 
-qoi-c            4408.43      5529.64        282.3        225.1
-qoi-fast         3202.04      4666.84        388.7        266.7
+qoi-c            4409.34      5531.82        282.3        225.0
+qoi-fast         3105.60      4726.19        400.8        263.3
 ```
 
 ### License
