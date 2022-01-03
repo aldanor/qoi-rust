@@ -1,4 +1,7 @@
-use std::convert::TryFrom;
+#[cfg(any(feature = "std", feature = "alloc"))]
+use alloc::{vec, vec::Vec};
+use core::convert::TryFrom;
+#[cfg(feature = "std")]
 use std::io::Write;
 
 use crate::consts::{QOI_HEADER_SIZE, QOI_OP_INDEX, QOI_OP_RUN, QOI_PADDING, QOI_PADDING_SIZE};
@@ -6,7 +9,9 @@ use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
 use crate::types::{Channels, ColorSpace};
-use crate::utils::{unlikely, BytesMut, GenericWriter, Writer};
+#[cfg(feature = "std")]
+use crate::utils::GenericWriter;
+use crate::utils::{cold, unlikely, BytesMut, Writer};
 
 #[allow(clippy::cast_possible_truncation, unused_assignments)]
 fn qoi_encode_impl<W: Writer, const N: usize>(mut buf: W, data: &[u8]) -> Result<usize>
@@ -89,6 +94,7 @@ pub fn qoi_encode_to_buf(
     QoiEncoder::new(&data, width, height)?.encode_to_buf(buf)
 }
 
+#[cfg(any(feature = "alloc", feature = "std"))]
 #[inline]
 pub fn qoi_encode_to_vec(data: impl AsRef<[u8]>, width: u32, height: u32) -> Result<Vec<u8>> {
     QoiEncoder::new(&data, width, height)?.encode_to_vec()
@@ -149,6 +155,7 @@ impl<'a> QoiEncoder<'a> {
         Ok(QOI_HEADER_SIZE + n_written)
     }
 
+    #[cfg(any(feature = "alloc", feature = "std"))]
     #[inline]
     pub fn encode_to_vec(&self) -> Result<Vec<u8>> {
         let mut out = vec![0_u8; self.encoded_size_limit()];
@@ -157,6 +164,7 @@ impl<'a> QoiEncoder<'a> {
         Ok(out)
     }
 
+    #[cfg(feature = "std")]
     #[inline]
     pub fn encode_to_stream<W: Write>(&self, writer: &mut W) -> Result<usize> {
         writer.write_all(&self.header.encode())?;

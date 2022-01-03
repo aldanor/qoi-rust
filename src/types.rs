@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use core::convert::TryFrom;
 
 use crate::error::{Error, Result};
 use crate::utils::unlikely;

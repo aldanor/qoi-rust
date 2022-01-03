@@ -1,3 +1,4 @@
+#[cfg(feature = "std")]
 use std::io::Write;
 
 use crate::error::Result;
@@ -29,17 +30,20 @@ pub trait Writer: Sized {
     fn capacity(&self) -> usize;
 }
 
+#[cfg(feature = "std")]
 pub struct GenericWriter<W> {
     writer: W,
     n_written: usize,
 }
 
+#[cfg(feature = "std")]
 impl<W: Write> GenericWriter<W> {
     pub fn new(writer: W) -> Self {
         Self { writer, n_written: 0 }
     }
 }
 
+#[cfg(feature = "std")]
 impl<W: Write> Writer for GenericWriter<W> {
     fn write_one(mut self, v: u8) -> Result<Self> {
         self.n_written += 1;

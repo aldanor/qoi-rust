@@ -1,3 +1,6 @@
+#[cfg(any(feature = "std", feature = "alloc"))]
+use alloc::{vec, vec::Vec};
+#[cfg(feature = "std")]
 use std::io::Read;
 
 // TODO: can be removed once https://github.com/rust-lang/rust/issues/74985 is stable
@@ -111,6 +114,7 @@ pub fn qoi_decode_to_buf(buf: impl AsMut<[u8]>, data: impl AsRef<[u8]>) -> Resul
     Ok(*decoder.header())
 }
 
+#[cfg(any(feature = "std", feature = "alloc"))]
 #[inline]
 pub fn qoi_decode_to_vec(data: impl AsRef<[u8]>) -> Result<(Header, Vec<u8>)> {
     let mut decoder = QoiDecoder::new(&data)?;
@@ -177,6 +181,7 @@ impl<'a> QoiDecoder<'a> {
         Ok(size)
     }
 
+    #[cfg(any(feature = "std", feature = "alloc"))]
     #[inline]
     pub fn decode_to_vec(&mut self) -> Result<Vec<u8>> {
         let mut out = vec![0; self.header.n_pixels() * self.channels.as_u8() as usize];
@@ -184,6 +189,7 @@ impl<'a> QoiDecoder<'a> {
     }
 }
 
+#[cfg(any(feature = "std"))]
 #[inline]
 fn qoi_decode_impl_stream<R: Read, const N: usize, const RGBA: bool>(
     data: &mut R, out: &mut [u8],
@@ -253,6 +259,7 @@ where
     Ok(())
 }
 
+#[cfg(feature = "std")]
 #[inline]
 fn qoi_decode_impl_stream_all<R: Read>(
     data: &mut R, out: &mut [u8], channels: u8, src_channels: u8,
@@ -269,12 +276,14 @@ fn qoi_decode_impl_stream_all<R: Read>(
     }
 }
 
+#[cfg(feature = "std")]
 pub struct QoiStreamDecoder<R> {
     reader: R,
     header: Header,
     channels: Channels,
 }
 
+#[cfg(feature = "std")]
 impl<R: Read> QoiStreamDecoder<R> {
     #[inline]
     pub fn new(mut reader: R) -> Result<Self> {

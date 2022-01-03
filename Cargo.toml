@@ -16,7 +16,9 @@ exclude = [
 ]
 
 [features]
-default = []
+default = ["std"]
+alloc = []      # provides access to `Vec` without enabling `std` mode
+std = []        # std mode (enabled by default) - provides access to `std::io`, `Error` and `Vec`
 reference = []  # follows reference encoder implementation precisely, but may be slightly slower
 
 [dependencies]

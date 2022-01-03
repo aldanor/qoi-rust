@@ -1,27 +1,47 @@
-use std::convert::Infallible;
-use std::error::Error as StdError;
-use std::fmt::{self, Display};
-use std::io;
-use std::result::Result as StdResult;
+use core::convert::Infallible;
+use core::fmt::{self, Display};
 
 use crate::consts::{QOI_MAGIC, QOI_PIXELS_MAX};
 
 #[derive(Debug)]
 pub enum Error {
-    InvalidChannels { channels: u8 },
-    EmptyImage { width: u32, height: u32 },
-    ImageTooLarge { width: u32, height: u32 },
-    InvalidImageLength { size: usize, width: u32, height: u32 },
-    InputBufferTooSmall { size: usize, required: usize },
-    OutputBufferTooSmall { size: usize, required: usize },
-    InvalidMagic { magic: u32 },
+    InvalidChannels {
+        channels: u8,
+    },
+    EmptyImage {
+        width: u32,
+        height: u32,
+    },
+    ImageTooLarge {
+        width: u32,
+        height: u32,
+    },
+    InvalidImageLength {
+        size: usize,
+        width: u32,
+        height: u32,
+    },
+    InputBufferTooSmall {
+        size: usize,
+        required: usize,
+    },
+    OutputBufferTooSmall {
+        size: usize,
+        required: usize,
+    },
+    InvalidMagic {
+        magic: u32,
+    },
     UnexpectedBufferEnd,
-    InvalidColorSpace { colorspace: u8 },
+    InvalidColorSpace {
+        colorspace: u8,
+    },
     InvalidPadding,
-    IoError(io::Error),
+    #[cfg(feature = "std")]
+    IoError(std::io::Error),
 }
 
-pub type Result<T> = StdResult<T, Error>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -57,6 +77,7 @@ impl Display for Error {
             Self::InvalidPadding => {
                 write!(f, "invalid padding (stream end marker)")
             }
+            #[cfg(feature = "std")]
             Self::IoError(ref err) => {
                 write!(f, "i/o error: {}", err)
             }
@@ -64,7 +85,8 @@ impl Display for Error {
     }
 }
 
-impl StdError for Error {}
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
 
 impl From<Infallible> for Error {
     fn from(_: Infallible) -> Self {
@@ -72,8 +94,9 @@ impl From<Infallible> for Error {
     }
 }
 
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Self {
+#[cfg(feature = "std")]
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
         Self::IoError(err)
     }
 }
