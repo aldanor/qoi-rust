@@ -2,9 +2,9 @@ use crate::consts::{QOI_OP_DIFF, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA};
 use crate::error::Result;
 use crate::utils::Writer;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(transparent)]
-pub struct Pixel<const N: usize>(pub [u8; N]);
+pub struct Pixel<const N: usize>([u8; N]);
 
 impl<const N: usize> Pixel<N> {
     #[inline]
