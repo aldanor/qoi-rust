@@ -90,15 +90,18 @@ impl<'a> BytesMut<'a> {
             *first = v;
             Self(tail)
         } else {
-            cold();
-            panic!();
+            unreachable!()
         }
     }
 
     #[inline]
     pub fn write_many(self, v: &[u8]) -> Self {
-        let (head, tail) = self.0.split_at_mut(v.len());
-        head.copy_from_slice(v);
-        Self(tail)
+        if v.len() <= self.0.len() {
+            let (head, tail) = self.0.split_at_mut(v.len());
+            head.copy_from_slice(v);
+            Self(tail)
+        } else {
+            unreachable!()
+        }
     }
 }
