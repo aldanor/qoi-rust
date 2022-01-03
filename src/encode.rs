@@ -11,7 +11,7 @@ use crate::pixel::{Pixel, SupportedChannels};
 use crate::types::{Channels, ColorSpace};
 #[cfg(feature = "std")]
 use crate::utils::GenericWriter;
-use crate::utils::{cold, unlikely, BytesMut, Writer};
+use crate::utils::{unlikely, BytesMut, Writer};
 
 #[allow(clippy::cast_possible_truncation, unused_assignments)]
 fn qoi_encode_impl<W: Writer, const N: usize>(mut buf: W, data: &[u8]) -> Result<usize>

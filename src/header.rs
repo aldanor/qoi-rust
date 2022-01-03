@@ -44,10 +44,9 @@ impl Header {
     pub const fn try_new(
         width: u32, height: u32, channels: Channels, colorspace: ColorSpace,
     ) -> Result<Self> {
-        if unlikely(height == 0 || width == 0) {
-            return Err(Error::EmptyImage { width, height });
-        } else if unlikely((width as usize).saturating_mul(height as usize) > QOI_PIXELS_MAX) {
-            return Err(Error::ImageTooLarge { width, height });
+        let n_pixels = (width as usize).saturating_mul(height as usize);
+        if unlikely(n_pixels == 0 || n_pixels > QOI_PIXELS_MAX) {
+            return Err(Error::InvalidImageDimensions { width, height });
         }
         Ok(Self { width, height, channels, colorspace })
     }
@@ -83,7 +82,7 @@ impl Header {
     pub(crate) fn decode(data: impl AsRef<[u8]>) -> Result<Self> {
         let data = data.as_ref();
         if unlikely(data.len() < QOI_HEADER_SIZE) {
-            return Err(Error::InputBufferTooSmall { size: data.len(), required: QOI_HEADER_SIZE });
+            return Err(Error::UnexpectedBufferEnd);
         }
         let v = cast_slice::<_, [u8; 4]>(&data[..12]);
         let magic = u32::from_be_bytes(v[0]);
