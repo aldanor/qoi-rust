@@ -123,11 +123,11 @@ impl Codec for CodecQoiFast {
     }
 
     fn encode(img: &Image) -> Result<Vec<u8>> {
-        Ok(qoi_fast::qoi_encode_to_vec(&img.data, img.width, img.height)?)
+        Ok(qoi_fast::encode_to_vec(&img.data, img.width, img.height)?)
     }
 
     fn decode(data: &[u8], _img: &Image) -> Result<Vec<u8>> {
-        Ok(qoi_fast::qoi_decode_to_vec(data)?.1)
+        Ok(qoi_fast::decode_to_vec(data)?.1)
     }
 }
 
@@ -165,8 +165,7 @@ impl Codec for CodecQoiC {
     fn encode(img: &Image) -> Result<Vec<u8>> {
         unsafe {
             let (ptr, len) = Self::qoi_encode(img)?;
-            let mut vec = Vec::with_capacity(len);
-            vec.set_len(len);
+            let mut vec = vec![0; len];
             ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), len);
             libc::free(ptr as _);
             Ok(vec)
@@ -185,8 +184,7 @@ impl Codec for CodecQoiC {
         unsafe {
             let (ptr, desc) = Self::qoi_decode(data, img)?;
             let len = desc.width as usize * desc.height as usize * desc.channels as usize;
-            let mut vec = Vec::with_capacity(len);
-            vec.set_len(len);
+            let mut vec = vec![0; len];
             ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), len);
             libc::free(ptr as _);
             Ok(vec)

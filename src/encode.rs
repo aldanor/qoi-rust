@@ -14,7 +14,7 @@ use crate::utils::GenericWriter;
 use crate::utils::{unlikely, BytesMut, Writer};
 
 #[allow(clippy::cast_possible_truncation, unused_assignments)]
-fn qoi_encode_impl<W: Writer, const N: usize>(mut buf: W, data: &[u8]) -> Result<usize>
+fn encode_impl<W: Writer, const N: usize>(mut buf: W, data: &[u8]) -> Result<usize>
 where
     Pixel<N>: SupportedChannels,
 {
@@ -70,15 +70,15 @@ where
 }
 
 #[inline]
-fn qoi_encode_impl_all<W: Writer>(out: W, data: &[u8], channels: Channels) -> Result<usize> {
+fn encode_impl_all<W: Writer>(out: W, data: &[u8], channels: Channels) -> Result<usize> {
     match channels {
-        Channels::Rgb => qoi_encode_impl::<_, 3>(out, data),
-        Channels::Rgba => qoi_encode_impl::<_, 4>(out, data),
+        Channels::Rgb => encode_impl::<_, 3>(out, data),
+        Channels::Rgba => encode_impl::<_, 4>(out, data),
     }
 }
 
 #[inline]
-pub fn encoded_size_limit(width: u32, height: u32, channels: impl Into<u8>) -> usize {
+pub fn encode_size_limit(width: u32, height: u32, channels: impl Into<u8>) -> usize {
     let (width, height) = (width as usize, height as usize);
     let n_pixels = width.saturating_mul(height);
     QOI_HEADER_SIZE
@@ -88,24 +88,24 @@ pub fn encoded_size_limit(width: u32, height: u32, channels: impl Into<u8>) -> u
 }
 
 #[inline]
-pub fn qoi_encode_to_buf(
+pub fn encode_to_buf(
     buf: impl AsMut<[u8]>, data: impl AsRef<[u8]>, width: u32, height: u32,
 ) -> Result<usize> {
-    QoiEncoder::new(&data, width, height)?.encode_to_buf(buf)
+    Encoder::new(&data, width, height)?.encode_to_buf(buf)
 }
 
 #[cfg(any(feature = "alloc", feature = "std"))]
 #[inline]
-pub fn qoi_encode_to_vec(data: impl AsRef<[u8]>, width: u32, height: u32) -> Result<Vec<u8>> {
-    QoiEncoder::new(&data, width, height)?.encode_to_vec()
+pub fn encode_to_vec(data: impl AsRef<[u8]>, width: u32, height: u32) -> Result<Vec<u8>> {
+    Encoder::new(&data, width, height)?.encode_to_vec()
 }
 
-pub struct QoiEncoder<'a> {
+pub struct Encoder<'a> {
     data: &'a [u8],
     header: Header,
 }
 
-impl<'a> QoiEncoder<'a> {
+impl<'a> Encoder<'a> {
     #[inline]
     #[allow(clippy::cast_possible_truncation)]
     pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized), width: u32, height: u32) -> Result<Self> {
@@ -138,27 +138,27 @@ impl<'a> QoiEncoder<'a> {
     }
 
     #[inline]
-    pub fn encoded_size_limit(&self) -> usize {
-        self.header.encoded_size_limit()
+    pub fn encode_size_limit(&self) -> usize {
+        self.header.encode_size_limit()
     }
 
     #[inline]
     pub fn encode_to_buf(&self, mut buf: impl AsMut<[u8]>) -> Result<usize> {
         let buf = buf.as_mut();
-        let size_required = self.encoded_size_limit();
+        let size_required = self.encode_size_limit();
         if unlikely(buf.len() < size_required) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size_required });
         }
         let (head, tail) = buf.split_at_mut(QOI_HEADER_SIZE); // can't panic
         head.copy_from_slice(&self.header.encode());
-        let n_written = qoi_encode_impl_all(BytesMut::new(tail), self.data, self.header.channels)?;
+        let n_written = encode_impl_all(BytesMut::new(tail), self.data, self.header.channels)?;
         Ok(QOI_HEADER_SIZE + n_written)
     }
 
     #[cfg(any(feature = "alloc", feature = "std"))]
     #[inline]
     pub fn encode_to_vec(&self) -> Result<Vec<u8>> {
-        let mut out = vec![0_u8; self.encoded_size_limit()];
+        let mut out = vec![0_u8; self.encode_size_limit()];
         let size = self.encode_to_buf(&mut out)?;
         out.truncate(size);
         Ok(out)
@@ -169,7 +169,7 @@ impl<'a> QoiEncoder<'a> {
     pub fn encode_to_stream<W: Write>(&self, writer: &mut W) -> Result<usize> {
         writer.write_all(&self.header.encode())?;
         let n_written =
-            qoi_encode_impl_all(GenericWriter::new(writer), self.data, self.header.channels)?;
+            encode_impl_all(GenericWriter::new(writer), self.data, self.header.channels)?;
         Ok(n_written + QOI_HEADER_SIZE)
     }
 }

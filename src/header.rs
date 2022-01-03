@@ -3,7 +3,7 @@ use core::convert::TryInto;
 use bytemuck::cast_slice;
 
 use crate::consts::{QOI_HEADER_SIZE, QOI_MAGIC, QOI_PIXELS_MAX};
-use crate::encoded_size_limit;
+use crate::encode_size_limit;
 use crate::error::{Error, Result};
 use crate::types::{Channels, ColorSpace};
 use crate::utils::unlikely;
@@ -112,7 +112,7 @@ impl Header {
     ///
     /// This comes useful when pre-allocating a buffer to encode the image into.
     #[inline]
-    pub fn encoded_size_limit(&self) -> usize {
-        encoded_size_limit(self.width, self.height, self.channels)
+    pub fn encode_size_limit(&self) -> usize {
+        encode_size_limit(self.width, self.height, self.channels)
     }
 }

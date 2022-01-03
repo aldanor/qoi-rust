@@ -1,6 +1,8 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
+use qoi_fast::{encode_size_limit, encode_to_vec};
+
 fuzz_target!(|input: (bool, u8, &[u8])| {
     let (is_4, w_frac, data) = input;
     let channels = if is_4 { 4 } else { 3 };
@@ -13,10 +15,10 @@ fuzz_target!(|input: (bool, u8, &[u8])| {
         let h = n_pixels / w;
         (w, h)
     };
-    let out = qoi_fast::qoi_encode_to_vec(&data[..(w * h * channels as usize)], w as u32, h as u32);
+    let out = encode_to_vec(&data[..(w * h * channels as usize)], w as u32, h as u32);
     if w * h != 0 {
         let out = out.unwrap();
-        assert!(out.len() <= qoi_fast::encoded_size_limit(w as u32, h as u32, channels));
+        assert!(out.len() <= encode_size_limit(w as u32, h as u32, channels));
     } else {
         assert!(out.is_err());
     }

@@ -5,7 +5,7 @@ use anyhow::{bail, Result};
 use cfg_if::cfg_if;
 use walkdir::{DirEntry, WalkDir};
 
-use qoi_fast::{qoi_decode_to_vec, qoi_encode_to_vec};
+use qoi_fast::{decode_to_vec, encode_to_vec};
 
 fn find_qoi_png_pairs(root: impl AsRef<Path>) -> Vec<(PathBuf, PathBuf)> {
     let root = root.as_ref();
@@ -96,7 +96,7 @@ fn test_reference_images() -> Result<()> {
         let png_name = png_path.file_name().unwrap_or_default().to_string_lossy();
         let img = Image::from_png(png_path)?;
         println!("{} {} {} {}", png_name, img.width, img.height, img.channels);
-        let encoded = qoi_encode_to_vec(&img.data, img.width, img.height)?;
+        let encoded = encode_to_vec(&img.data, img.width, img.height)?;
         let expected = fs::read(qoi_path)?;
         assert_eq!(encoded.len(), expected.len()); // this should match regardless
         cfg_if! {
@@ -104,8 +104,8 @@ fn test_reference_images() -> Result<()> {
                 compare_slices(&png_name, "encoding", &encoded, &expected)?;
             }
         }
-        let (_header1, decoded1) = qoi_decode_to_vec(&encoded)?;
-        let (_header2, decoded2) = qoi_decode_to_vec(&expected)?;
+        let (_header1, decoded1) = decode_to_vec(&encoded)?;
+        let (_header2, decoded2) = decode_to_vec(&expected)?;
         compare_slices(&png_name, "decoding [1]", &decoded1, &img.data)?;
         compare_slices(&png_name, "decoding [2]", &decoded2, &img.data)?;
     }

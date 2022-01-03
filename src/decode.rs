@@ -22,9 +22,7 @@ const QOI_OP_DIFF_END: u8 = QOI_OP_DIFF | 0x3f;
 const QOI_OP_LUMA_END: u8 = QOI_OP_LUMA | 0x3f;
 
 #[inline]
-fn qoi_decode_impl_slice<const N: usize, const RGBA: bool>(
-    data: &[u8], out: &mut [u8],
-) -> Result<usize>
+fn decode_impl_slice<const N: usize, const RGBA: bool>(data: &[u8], out: &mut [u8]) -> Result<usize>
 where
     Pixel<N>: SupportedChannels,
     [u8; N]: Pod,
@@ -92,14 +90,14 @@ where
 }
 
 #[inline]
-fn qoi_decode_impl_slice_all(
+fn decode_impl_slice_all(
     data: &[u8], out: &mut [u8], channels: u8, src_channels: u8,
 ) -> Result<usize> {
     match (channels, src_channels) {
-        (3, 3) => qoi_decode_impl_slice::<3, false>(data, out),
-        (3, 4) => qoi_decode_impl_slice::<3, true>(data, out),
-        (4, 3) => qoi_decode_impl_slice::<4, false>(data, out),
-        (4, 4) => qoi_decode_impl_slice::<4, true>(data, out),
+        (3, 3) => decode_impl_slice::<3, false>(data, out),
+        (3, 4) => decode_impl_slice::<3, true>(data, out),
+        (4, 3) => decode_impl_slice::<4, false>(data, out),
+        (4, 4) => decode_impl_slice::<4, true>(data, out),
         _ => {
             cold();
             Err(Error::InvalidChannels { channels })
@@ -108,33 +106,33 @@ fn qoi_decode_impl_slice_all(
 }
 
 #[inline]
-pub fn qoi_decode_to_buf(buf: impl AsMut<[u8]>, data: impl AsRef<[u8]>) -> Result<Header> {
-    let mut decoder = QoiDecoder::new(&data)?;
+pub fn decode_to_buf(buf: impl AsMut<[u8]>, data: impl AsRef<[u8]>) -> Result<Header> {
+    let mut decoder = Decoder::new(&data)?;
     decoder.decode_to_buf(buf)?;
     Ok(*decoder.header())
 }
 
 #[cfg(any(feature = "std", feature = "alloc"))]
 #[inline]
-pub fn qoi_decode_to_vec(data: impl AsRef<[u8]>) -> Result<(Header, Vec<u8>)> {
-    let mut decoder = QoiDecoder::new(&data)?;
+pub fn decode_to_vec(data: impl AsRef<[u8]>) -> Result<(Header, Vec<u8>)> {
+    let mut decoder = Decoder::new(&data)?;
     let out = decoder.decode_to_vec()?;
     Ok((*decoder.header(), out))
 }
 
 #[inline]
-pub fn qoi_decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
+pub fn decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
     Header::decode(data)
 }
 
 #[derive(Clone)]
-pub struct QoiDecoder<'a> {
+pub struct Decoder<'a> {
     data: &'a [u8],
     header: Header,
     channels: Channels,
 }
 
-impl<'a> QoiDecoder<'a> {
+impl<'a> Decoder<'a> {
     #[inline]
     pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized)) -> Result<Self> {
         let data = data.as_ref();
@@ -171,7 +169,7 @@ impl<'a> QoiDecoder<'a> {
         if unlikely(buf.len() < size) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
         }
-        let n_read = qoi_decode_impl_slice_all(
+        let n_read = decode_impl_slice_all(
             self.data,
             buf,
             self.channels.as_u8(),
@@ -191,7 +189,7 @@ impl<'a> QoiDecoder<'a> {
 
 #[cfg(any(feature = "std"))]
 #[inline]
-fn qoi_decode_impl_stream<R: Read, const N: usize, const RGBA: bool>(
+fn decode_impl_stream<R: Read, const N: usize, const RGBA: bool>(
     data: &mut R, out: &mut [u8],
 ) -> Result<()>
 where
@@ -261,14 +259,14 @@ where
 
 #[cfg(feature = "std")]
 #[inline]
-fn qoi_decode_impl_stream_all<R: Read>(
+fn decode_impl_stream_all<R: Read>(
     data: &mut R, out: &mut [u8], channels: u8, src_channels: u8,
 ) -> Result<()> {
     match (channels, src_channels) {
-        (3, 3) => qoi_decode_impl_stream::<_, 3, false>(data, out),
-        (3, 4) => qoi_decode_impl_stream::<_, 3, true>(data, out),
-        (4, 3) => qoi_decode_impl_stream::<_, 4, false>(data, out),
-        (4, 4) => qoi_decode_impl_stream::<_, 4, true>(data, out),
+        (3, 3) => decode_impl_stream::<_, 3, false>(data, out),
+        (3, 4) => decode_impl_stream::<_, 3, true>(data, out),
+        (4, 3) => decode_impl_stream::<_, 4, false>(data, out),
+        (4, 4) => decode_impl_stream::<_, 4, true>(data, out),
         _ => {
             cold();
             Err(Error::InvalidChannels { channels })
@@ -277,14 +275,14 @@ fn qoi_decode_impl_stream_all<R: Read>(
 }
 
 #[cfg(feature = "std")]
-pub struct QoiStreamDecoder<R> {
+pub struct StreamDecoder<R> {
     reader: R,
     header: Header,
     channels: Channels,
 }
 
 #[cfg(feature = "std")]
-impl<R: Read> QoiStreamDecoder<R> {
+impl<R: Read> StreamDecoder<R> {
     #[inline]
     pub fn new(mut reader: R) -> Result<Self> {
         let mut b = [0; QOI_HEADER_SIZE];
@@ -325,7 +323,7 @@ impl<R: Read> QoiStreamDecoder<R> {
         if unlikely(buf.len() < size) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
         }
-        qoi_decode_impl_stream_all(
+        decode_impl_stream_all(
             &mut self.reader,
             buf,
             self.channels.as_u8(),

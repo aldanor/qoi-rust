@@ -19,13 +19,13 @@ libfuzzer-sys = "0.4"
 members = ["."]
 
 [[bin]]
-name = "qoi_encode"
-path = "fuzz_targets/qoi_encode.rs"
+name = "encode"
+path = "fuzz_targets/encode.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "qoi_decode"
-path = "fuzz_targets/qoi_decode.rs"
+name = "decode"
+path = "fuzz_targets/decode.rs"
 test = false
 doc = false

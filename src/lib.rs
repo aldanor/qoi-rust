@@ -26,14 +26,14 @@ mod utils;
 pub mod consts;
 
 #[cfg(any(feature = "alloc", feature = "std"))]
-pub use crate::decode::qoi_decode_to_vec;
+pub use crate::decode::decode_to_vec;
 #[cfg(feature = "std")]
-pub use crate::decode::QoiStreamDecoder;
-pub use crate::decode::{qoi_decode_header, qoi_decode_to_buf, QoiDecoder};
+pub use crate::decode::StreamDecoder;
+pub use crate::decode::{decode_header, decode_to_buf, Decoder};
 
 #[cfg(any(feature = "alloc", feature = "std"))]
-pub use crate::encode::qoi_encode_to_vec;
-pub use crate::encode::{encoded_size_limit, qoi_encode_to_buf, QoiEncoder};
+pub use crate::encode::encode_to_vec;
+pub use crate::encode::{encode_size_limit, encode_to_buf, Encoder};
 pub use crate::error::{Error, Result};
 pub use crate::header::Header;
 pub use crate::types::{Channels, ColorSpace};
