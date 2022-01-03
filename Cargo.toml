@@ -29,6 +29,7 @@ members = ["qoi-bench"]
 anyhow = "1.0"
 png = "0.17"
 walkdir = "2.3"
+cfg-if = "1.0"
 
 [lib]
 name = "qoi_fast"

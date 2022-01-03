@@ -2,6 +2,7 @@ use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
+use cfg_if::cfg_if;
 use walkdir::{DirEntry, WalkDir};
 
 use qoi_fast::{qoi_decode_to_vec, qoi_encode_to_vec};
@@ -97,9 +98,15 @@ fn test_reference_images() -> Result<()> {
         println!("{} {} {} {}", png_name, img.width, img.height, img.channels);
         let encoded = qoi_encode_to_vec(&img.data, img.width, img.height)?;
         let expected = fs::read(qoi_path)?;
-        compare_slices(&png_name, "encoding", &encoded, &expected)?;
-        let (_header, decoded) = qoi_decode_to_vec(&expected)?;
-        compare_slices(&png_name, "decoding", &decoded, &img.data)?;
+        cfg_if! {
+            if #[cfg(feature = "reference")] {
+                compare_slices(&png_name, "encoding", &encoded, &expected)?;
+            }
+        }
+        let (_header1, decoded1) = qoi_decode_to_vec(&encoded)?;
+        let (_header2, decoded2) = qoi_decode_to_vec(&expected)?;
+        compare_slices(&png_name, "decoding [1]", &decoded1, &img.data)?;
+        compare_slices(&png_name, "decoding [2]", &decoded2, &img.data)?;
     }
 
     Ok(())
