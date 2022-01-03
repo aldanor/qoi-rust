@@ -1,7 +1,7 @@
 use std::io::Read;
 
 // TODO: can be removed once https://github.com/rust-lang/rust/issues/74985 is stable
-use bytemuck::{cast_slice, cast_slice_mut, Pod};
+use bytemuck::{cast_slice_mut, Pod};
 
 use crate::consts::{
     QOI_HEADER_SIZE, QOI_OP_DIFF, QOI_OP_INDEX, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA, QOI_OP_RUN,
@@ -81,7 +81,7 @@ where
 
     if unlikely(data.len() < QOI_PADDING_SIZE) {
         return Err(Error::UnexpectedBufferEnd);
-    } else if unlikely(cast_slice::<_, [u8; QOI_PADDING_SIZE]>(data)[0] != QOI_PADDING) {
+    } else if unlikely(&data[..QOI_PADDING_SIZE] != &QOI_PADDING) {
         return Err(Error::InvalidPadding);
     }
 
