@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::io::Write;
 
 use crate::consts::{QOI_HEADER_SIZE, QOI_OP_INDEX, QOI_OP_RUN, QOI_PADDING, QOI_PADDING_SIZE};
