@@ -88,6 +88,7 @@ pub struct QoiEncoder<'a> {
 
 impl<'a> QoiEncoder<'a> {
     #[inline]
+    #[allow(clippy::cast_possible_truncation)]
     pub fn new(data: &'a (impl AsRef<[u8]> + ?Sized), width: u32, height: u32) -> Result<Self> {
         let data = data.as_ref();
         let mut header =

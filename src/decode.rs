@@ -81,7 +81,7 @@ where
 
     if unlikely(data.len() < QOI_PADDING_SIZE) {
         return Err(Error::UnexpectedBufferEnd);
-    } else if unlikely(&data[..QOI_PADDING_SIZE] != &QOI_PADDING) {
+    } else if unlikely(data[..QOI_PADDING_SIZE] != QOI_PADDING) {
         return Err(Error::InvalidPadding);
     }
 
