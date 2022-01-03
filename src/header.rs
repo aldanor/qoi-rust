@@ -8,7 +8,7 @@ use crate::error::{Error, Result};
 use crate::types::{Channels, ColorSpace};
 use crate::utils::unlikely;
 
-/// QOI image header.
+/// Image header: dimensions, channels, color space.
 ///
 /// ### Notes
 /// A valid image header must satisfy the following conditions:
