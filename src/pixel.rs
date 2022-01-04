@@ -108,6 +108,7 @@ impl<const N: usize> Pixel<N> {
     }
 
     #[inline]
+    #[allow(clippy::cast_lossless, clippy::cast_possible_truncation)]
     pub fn hash_index(self) -> u8
     where
         [u8; N]: Pod,

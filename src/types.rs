@@ -16,7 +16,6 @@ pub enum ColorSpace {
     Linear = 1,
 }
 
-#[allow(clippy::doc_markdown)]
 impl ColorSpace {
     /// Returns true if the color space is sRGB with linear alpha.
     pub const fn is_srgb(self) -> bool {

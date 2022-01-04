@@ -53,7 +53,8 @@
     clippy::missing_errors_doc,
     clippy::must_use_candidate,
     clippy::module_name_repetitions,
-    clippy::cargo_common_metadata
+    clippy::cargo_common_metadata,
+    clippy::doc_markdown
 )]
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 #[cfg(all(feature = "alloc", not(any(feature = "std", test))))]
