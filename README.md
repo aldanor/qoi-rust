@@ -9,10 +9,7 @@
 
 Fast encoder/decoder for [QOI image format](https://qoiformat.org/), implemented in pure and safe Rust.
 
-Quick summary:
-
-- One of the [fastest](https://github.com/aldanor/qoi-fast#benchmarks)
-  QOI encoders/decoders out there.
+- One of the [fastest](#benchmarks) QOI encoders/decoders out there.
 - Compliant with the [latest](https://qoiformat.org/qoi-specification.pdf) QOI format specification.
 - Zero unsafe code.
 - Supports decoding from / encoding to `std::io` streams directly.
