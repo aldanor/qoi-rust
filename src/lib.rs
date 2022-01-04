@@ -37,6 +37,11 @@
 //! of QOI for comparison purposes and, at the time of writing this document,
 //! this library proved to be the fastest one by a noticeable margin.
 //!
+//! ### Rust version
+//!
+//! The minimum required Rust version is 1.51.0 (any changes to this would be
+//! considered to be a breaking change).
+//!
 //! ### `no_std`
 //!
 //! This crate supports `no_std` mode. By default, std is enabled via the `std`
