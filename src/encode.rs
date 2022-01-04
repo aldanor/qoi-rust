@@ -15,7 +15,7 @@ use crate::types::{Channels, ColorSpace};
 use crate::utils::GenericWriter;
 use crate::utils::{unlikely, BytesMut, Writer};
 
-#[allow(clippy::cast_possible_truncation, unused_assignments)]
+#[allow(clippy::cast_possible_truncation, unused_assignments, unused_variables)]
 fn encode_impl<W: Writer, const N: usize>(mut buf: W, data: &[u8]) -> Result<usize>
 where
     Pixel<N>: SupportedChannels,
@@ -28,6 +28,7 @@ where
     let mut hash_prev = Pixel::<N>::new().with_a(0xff).hash_index();
     let mut run = 0_u8;
     let mut px = Pixel::<N>::new().with_a(0xff);
+    let mut index_allowed = N == 3;
 
     let n_pixels = data.len() / N;
 
@@ -44,7 +45,7 @@ where
                 #[cfg(not(feature = "reference"))]
                 {
                     // credits for the original idea: @zakarumych
-                    buf = buf.write_one(if run == 1 && i != 1 {
+                    buf = buf.write_one(if run == 1 && index_allowed {
                         QOI_OP_INDEX | (hash_prev as u8)
                     } else {
                         QOI_OP_RUN | (run - 1)
@@ -56,6 +57,7 @@ where
                 }
                 run = 0;
             }
+            index_allowed = true;
             let px_rgba = px.as_rgba(0xff);
             hash_prev = px_rgba.hash_index();
             let index_px = &mut index[hash_prev as usize];
