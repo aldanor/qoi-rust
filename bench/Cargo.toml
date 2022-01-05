@@ -12,6 +12,7 @@ qoi-fast = { path = ".." }
 # external
 anyhow = "1.0"
 libc = "0.2"
+bytemuck = "1.7"
 png = "0.17"
 structopt = "0.3"
 walkdir = "2.3"

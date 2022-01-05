@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{bail, ensure, Context, Result};
 use libc::{c_int, c_void};
+use bytemuck::cast_slice;
 use structopt::StructOpt;
 use walkdir::{DirEntry, WalkDir};
 
@@ -72,6 +73,27 @@ fn find_pngs(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
     Ok(out)
 }
 
+fn grayscale_to_rgb(buf: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(buf.len() * 3);
+    for &px in buf {
+        for _ in 0..3 {
+            out.push(px);
+        }
+    }
+    out
+}
+
+fn grayscale_alpha_to_rgba(buf: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(buf.len() * 4);
+    for &px in cast_slice::<_, [u8; 2]>(buf) {
+        for _ in 0..3 {
+            out.push(px[0]);
+        }
+        out.push(px[1])
+    }
+    out
+}
+
 #[derive(Clone)]
 struct Image {
     pub width: u32,
@@ -81,20 +103,36 @@ struct Image {
 }
 
 impl Image {
+    fn read_png(filename: &Path) -> Result<Self> {
+        let mut decoder = png::Decoder::new(File::open(filename)?);
+        let transformations = png::Transformations::normalize_to_color8();
+        decoder.set_transformations(transformations);
+        let mut reader = decoder.read_info()?;
+        let mut whole_buf = vec![0; reader.output_buffer_size()];
+        let info = reader.next_frame(&mut whole_buf)?;
+        let buf = &whole_buf[..info.buffer_size()];
+        ensure!(info.bit_depth == png::BitDepth::Eight, "invalid bit depth: {:?}", info.bit_depth);
+        let (channels, data) = match info.color_type {
+            png::ColorType::Grayscale => {
+                // png crate doesn't support GRAY_TO_RGB transformation yet
+                (3, grayscale_to_rgb(buf))
+            }
+            png::ColorType::GrayscaleAlpha => {
+                // same as above, but with alpha channel
+                (4, grayscale_alpha_to_rgba(buf))
+            }
+            color_type => {
+                let channels = color_type.samples();
+                ensure!(channels == 3 || channels == 4, "invalid channels: {}", channels);
+                (channels as u8, buf[..info.buffer_size()].to_vec())
+            }
+        };
+        Ok(Self { width: info.width, height: info.height, channels, data })
+    }
+
     pub const fn n_pixels(&self) -> usize {
         (self.width as usize) * (self.height as usize)
     }
-}
-
-fn read_png(filename: &Path) -> Result<Image> {
-    let decoder = png::Decoder::new(File::open(filename)?);
-    let mut reader = decoder.read_info()?;
-    let mut buf = vec![0; reader.output_buffer_size()];
-    let info = reader.next_frame(&mut buf)?;
-    let bytes = &buf[..info.buffer_size()];
-    let channels = info.color_type.samples() as u8;
-    ensure!(channels == 3 || channels == 4, "invalid channels: {}", channels);
-    Ok(Image { width: info.width, height: info.height, channels, data: bytes.to_vec() })
 }
 
 trait Codec {
@@ -360,7 +398,7 @@ impl BenchTotals {
 
 fn bench_png(filename: &Path, seconds: f64, use_median: bool) -> Result<ImageBench> {
     let f = filename.to_string_lossy();
-    let img = read_png(filename).context(format!("error reading PNG file: {}", f))?;
+    let img = Image::read_png(filename).context(format!("error reading PNG file: {}", f))?;
     let size_kb = fs::metadata(filename)?.len() / 1024;
     let mpixels = img.n_pixels() as f64 / 1e6;
     println!(
