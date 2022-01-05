@@ -1,31 +1,13 @@
 use std::cmp::Ordering;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use std::ptr;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, ensure, Context, Result};
-use libc::{c_int, c_void};
 use bytemuck::cast_slice;
+use c_vec::CVec;
 use structopt::StructOpt;
 use walkdir::{DirEntry, WalkDir};
-
-#[derive(Debug, Copy, Clone, Default)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-struct qoi_desc {
-    width: u32,
-    height: u32,
-    channels: u8,
-    colorspace: u8,
-}
-
-extern "C" {
-    fn qoi_encode(data: *const c_void, desc: *const qoi_desc, out_len: *mut c_int) -> *mut c_void;
-    fn qoi_decode(
-        data: *const c_void, size: c_int, desc: *mut qoi_desc, channels: c_int,
-    ) -> *mut c_void;
-}
 
 fn black_box<T>(dummy: T) -> T {
     unsafe {
@@ -136,26 +118,18 @@ impl Image {
 }
 
 trait Codec {
+    type Output: AsRef<[u8]>;
+
     fn name() -> &'static str;
-
-    fn encode(img: &Image) -> Result<Vec<u8>>;
-
-    fn encode_bench(img: &Image) -> Result<()> {
-        let _ = black_box(Self::encode(img)?);
-        Ok(())
-    }
-
-    fn decode(data: &[u8], img: &Image) -> Result<Vec<u8>>;
-
-    fn decode_bench(data: &[u8], img: &Image) -> Result<()> {
-        let _ = black_box(Self::decode(data, img)?);
-        Ok(())
-    }
+    fn encode(img: &Image) -> Result<Self::Output>;
+    fn decode(data: &[u8], img: &Image) -> Result<Self::Output>;
 }
 
 struct CodecQoiFast;
 
 impl Codec for CodecQoiFast {
+    type Output = Vec<u8>;
+
     fn name() -> &'static str {
         "qoi-fast"
     }
@@ -171,70 +145,19 @@ impl Codec for CodecQoiFast {
 
 struct CodecQoiC;
 
-impl CodecQoiC {
-    unsafe fn qoi_encode(img: &Image) -> Result<(*mut u8, usize)> {
-        let desc = qoi_desc {
-            width: img.width,
-            height: img.height,
-            channels: img.channels,
-            colorspace: 0,
-        };
-        let mut out_len: c_int = 0;
-        let ptr =
-            qoi_encode(img.data.as_ptr() as *const _, &desc as *const _, &mut out_len as *mut _);
-        ensure!(!ptr.is_null(), "error encoding with qoi-c");
-        Ok((ptr as _, out_len as _))
-    }
-
-    unsafe fn qoi_decode(data: &[u8], img: &Image) -> Result<(*mut u8, qoi_desc)> {
-        let mut desc = qoi_desc::default();
-        let ptr =
-            qoi_decode(data.as_ptr() as _, data.len() as _, &mut desc as *mut _, img.channels as _);
-        ensure!(!ptr.is_null(), "error decoding with qoi-c");
-        Ok((ptr as _, desc))
-    }
-}
-
 impl Codec for CodecQoiC {
+    type Output = CVec<u8>;
+
     fn name() -> &'static str {
         "qoi-c"
     }
 
-    fn encode(img: &Image) -> Result<Vec<u8>> {
-        unsafe {
-            let (ptr, len) = Self::qoi_encode(img)?;
-            let mut vec = vec![0; len];
-            ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), len);
-            libc::free(ptr as _);
-            Ok(vec)
-        }
+    fn encode(img: &Image) -> Result<CVec<u8>> {
+        libqoi::qoi_encode(&img.data, img.width, img.height, img.channels)
     }
 
-    fn encode_bench(img: &Image) -> Result<()> {
-        unsafe {
-            let (ptr, _) = Self::qoi_encode(img)?;
-            libc::free(ptr as _);
-            Ok(())
-        }
-    }
-
-    fn decode(data: &[u8], img: &Image) -> Result<Vec<u8>> {
-        unsafe {
-            let (ptr, desc) = Self::qoi_decode(data, img)?;
-            let len = desc.width as usize * desc.height as usize * desc.channels as usize;
-            let mut vec = vec![0; len];
-            ptr::copy_nonoverlapping(ptr, vec.as_mut_ptr(), len);
-            libc::free(ptr as _);
-            Ok(vec)
-        }
-    }
-
-    fn decode_bench(data: &[u8], img: &Image) -> Result<()> {
-        unsafe {
-            let (ptr, _) = Self::qoi_decode(data, img)?;
-            libc::free(ptr as _);
-            Ok(())
-        }
+    fn decode(data: &[u8], img: &Image) -> Result<CVec<u8>> {
+        Ok(libqoi::qoi_decode(data, img.channels)?.1)
     }
 }
 
@@ -284,9 +207,9 @@ impl ImageBench {
     pub fn run<C: Codec>(&mut self, img: &Image, sec_allowed: f64) -> Result<()> {
         let (encoded, t_encode) = timeit(|| C::encode(img));
         let encoded = encoded?;
-        let (decoded, t_decode) = timeit(|| C::decode(&encoded, img));
+        let (decoded, t_decode) = timeit(|| C::decode(encoded.as_ref(), img));
         let decoded = decoded?;
-        let roundtrip = decoded.as_slice() == img.data.as_slice();
+        let roundtrip = decoded.as_ref() == img.data.as_slice();
         if C::name() == "qoi-fast" {
             assert!(roundtrip, "{}: decoded data doesn't roundtrip", C::name());
         } else {
@@ -296,14 +219,14 @@ impl ImageBench {
         let n_encode = (sec_allowed / 2. / t_encode.as_secs_f64()).max(2.).ceil() as usize;
         let mut encode_tm = Vec::with_capacity(n_encode);
         for _ in 0..n_encode {
-            encode_tm.push(timeit(|| C::encode_bench(img)).1);
+            encode_tm.push(timeit(|| C::encode(img)).1);
         }
         let encode_sec = encode_tm.iter().map(Duration::as_secs_f64).collect();
 
         let n_decode = (sec_allowed / 2. / t_decode.as_secs_f64()).max(2.).ceil() as usize;
         let mut decode_tm = Vec::with_capacity(n_decode);
         for _ in 0..n_decode {
-            decode_tm.push(timeit(|| C::decode_bench(&encoded, img)).1);
+            decode_tm.push(timeit(|| C::decode(encoded.as_ref(), img)).1);
         }
         let decode_sec = decode_tm.iter().map(Duration::as_secs_f64).collect();
 

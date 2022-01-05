@@ -8,11 +8,12 @@ publish = false
 
 [dependencies]
 # internal
+libqoi = { path = "../libqoi" }
 qoi-fast = { path = ".." }
 # external
 anyhow = "1.0"
-libc = "0.2"
 bytemuck = "1.7"
+c_vec = "2.0"
 png = "0.17"
 structopt = "0.3"
 walkdir = "2.3"
