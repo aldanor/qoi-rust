@@ -25,10 +25,10 @@ where
 
     let mut index = [Pixel::new(); 256];
     let mut px_prev = Pixel::new().with_a(0xff);
-    let mut hash_prev = Pixel::<N>::new().with_a(0xff).hash_index();
+    let mut hash_prev = px_prev.hash_index();
     let mut run = 0_u8;
     let mut px = Pixel::<N>::new().with_a(0xff);
-    let mut index_allowed = N == 3;
+    let mut index_allowed = false;
 
     let n_pixels = data.len() / N;
 
@@ -44,9 +44,9 @@ where
             if run != 0 {
                 #[cfg(not(feature = "reference"))]
                 {
-                    // credits for the original idea: @zakarumych
+                    // credits for the original idea: @zakarumych (had to be fixed though)
                     buf = buf.write_one(if run == 1 && index_allowed {
-                        QOI_OP_INDEX | (hash_prev as u8)
+                        QOI_OP_INDEX | hash_prev
                     } else {
                         QOI_OP_RUN | (run - 1)
                     })?;
