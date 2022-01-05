@@ -27,6 +27,15 @@ impl<const N: usize> Pixel<N> {
     }
 
     #[inline]
+    pub fn update<const M: usize>(&mut self, px: Pixel<M>) {
+        let mut i = 0;
+        while i < M && i < N {
+            self.0[i] = px.0[i];
+            i += 1;
+        }
+    }
+
+    #[inline]
     pub fn update_rgb(&mut self, r: u8, g: u8, b: u8) {
         self.0[0] = r;
         self.0[1] = g;

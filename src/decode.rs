@@ -31,14 +31,16 @@ where
     let data_len = data.len();
     let mut data = data;
 
-    let mut index = [Pixel::<N>::new(); 256];
+    let mut index = [Pixel::<4>::new(); 256];
     let mut px = Pixel::<N>::new().with_a(0xff);
+    let mut px_rgba: Pixel<4>;
 
     while let [px_out, ptail @ ..] = pixels {
         pixels = ptail;
         match data {
             [b1 @ QOI_OP_INDEX..=QOI_OP_INDEX_END, dtail @ ..] => {
-                px = index[*b1 as usize];
+                px_rgba = index[*b1 as usize];
+                px.update(px_rgba);
                 *px_out = px.into();
                 data = dtail;
                 continue;
@@ -76,8 +78,8 @@ where
             }
         }
 
-        let px_rgba = px.as_rgba(0xff);
-        index[px_rgba.hash_index() as usize] = px;
+        px_rgba = px.as_rgba(0xff);
+        index[px_rgba.hash_index() as usize] = px_rgba;
         *px_out = px.into();
     }
 
