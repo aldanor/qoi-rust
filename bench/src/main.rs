@@ -149,7 +149,7 @@ impl Codec for CodecQoiC {
     type Output = CVec<u8>;
 
     fn name() -> &'static str {
-        "qoi-c"
+        "qoi.h"
     }
 
     fn encode(img: &Image) -> Result<CVec<u8>> {
@@ -236,7 +236,7 @@ impl ImageBench {
 
     pub fn report(&self, use_median: bool) {
         let (w_name, w_col) = (11, 13);
-        print!("{:<w$}", "codec", w = w_name);
+        print!("{:<w$}", "", w = w_name);
         print!("{:>w$}", "decode:ms", w = w_col);
         print!("{:>w$}", "encode:ms", w = w_col);
         print!("{:>w$}", "decode:mp/s", w = w_col);
@@ -297,7 +297,7 @@ impl BenchTotals {
             total_size as f64 / 1024. / 1024.
         );
         println!("---");
-        print!("{:<w$}", "codec", w = w_name);
+        print!("{:<w$}", "", w = w_name);
         print!("{:>w$}", "decode:ms", w = w_col);
         print!("{:>w$}", "encode:ms", w = w_col);
         print!("{:>w$}", "decode:mp/s", w = w_col);
@@ -325,7 +325,7 @@ fn bench_png(filename: &Path, seconds: f64, use_median: bool) -> Result<ImageBen
     let size_kb = fs::metadata(filename)?.len() / 1024;
     let mpixels = img.n_pixels() as f64 / 1e6;
     println!(
-        "{} ({}x{}:{}, {} KB, {:.1}MP)",
+        "{} ({}x{}:{}, {} KB, {:.2}MP)",
         f, img.width, img.height, img.channels, size_kb, mpixels
     );
     let mut bench = ImageBench::new(&img);
@@ -340,9 +340,7 @@ fn bench_suite(files: &[PathBuf], seconds: f64, use_median: bool) -> Result<()> 
     for file in files {
         match bench_png(file, seconds, use_median) {
             Ok(res) => totals.update(&res),
-            Err(err) => {
-                eprintln!("Error processing `{}`: {}", file.display(), err);
-            }
+            Err(err) => eprintln!("{:?}", err),
         }
     }
     if totals.results.len() > 1 {
