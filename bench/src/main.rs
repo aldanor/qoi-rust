@@ -115,6 +115,10 @@ impl Image {
     pub const fn n_pixels(&self) -> usize {
         (self.width as usize) * (self.height as usize)
     }
+
+    pub const fn n_bytes(&self) -> usize {
+        self.n_pixels() * (self.channels as usize)
+    }
 }
 
 trait Codec {
@@ -197,11 +201,12 @@ impl BenchResult {
 struct ImageBench {
     results: Vec<BenchResult>,
     n_pixels: usize,
+    n_bytes: usize,
 }
 
 impl ImageBench {
     pub fn new(img: &Image) -> Self {
-        Self { results: vec![], n_pixels: img.n_pixels() }
+        Self { results: vec![], n_pixels: img.n_pixels(), n_bytes: img.n_bytes() }
     }
 
     pub fn run<C: Codec>(&mut self, img: &Image, sec_allowed: f64) -> Result<()> {
@@ -235,24 +240,30 @@ impl ImageBench {
     }
 
     pub fn report(&self, use_median: bool) {
-        let (w_name, w_col) = (11, 13);
+        let (w_name, w_col) = (9, 13);
         print!("{:<w$}", "", w = w_name);
         print!("{:>w$}", "decode:ms", w = w_col);
         print!("{:>w$}", "encode:ms", w = w_col);
-        print!("{:>w$}", "decode:mp/s", w = w_col);
-        print!("{:>w$}", "encode:mp/s", w = w_col);
+        print!("{:>w$}", "decode:Mp/s", w = w_col);
+        print!("{:>w$}", "encode:Mp/s", w = w_col);
+        print!("{:>w$}", "decode:MB/s", w = w_col);
+        print!("{:>w$}", "encode:MB/s", w = w_col);
         println!();
         for r in &self.results {
             let decode_sec = r.average_decode_sec(use_median);
             let encode_sec = r.average_encode_sec(use_median);
             let mpixels = self.n_pixels as f64 / 1e6;
             let (decode_mpps, encode_mpps) = (mpixels / decode_sec, mpixels / encode_sec);
+            let mbytes = self.n_bytes as f64 / 1024. / 1024.;
+            let (decode_mbps, encode_mbps) = (mbytes / decode_sec, mbytes / encode_sec);
 
             print!("{:<w$}", r.codec, w = w_name);
             print!("{:>w$.2}", decode_sec * 1e3, w = w_col);
             print!("{:>w$.2}", encode_sec * 1e3, w = w_col);
             print!("{:>w$.1}", decode_mpps, w = w_col);
             print!("{:>w$.1}", encode_mpps, w = w_col);
+            print!("{:>w$.1}", decode_mbps, w = w_col);
+            print!("{:>w$.1}", encode_mbps, w = w_col);
             println!();
         }
     }
@@ -272,49 +283,81 @@ impl BenchTotals {
         self.results.push(b.clone())
     }
 
-    pub fn report(&self, use_median: bool) {
+    pub fn report(&self, use_median: bool, fancy: bool) {
         if self.results.is_empty() {
             return;
         }
         let codec_names: Vec<_> = self.results[0].results.iter().map(|r| r.codec.clone()).collect();
         let n_codecs = codec_names.len();
-        let (mut total_decode_sec, mut total_encode_sec, mut total_size) =
-            (vec![0.; n_codecs], vec![0.; n_codecs], 0);
+        let (mut total_decode_sec, mut total_encode_sec, mut n_pixels_total, mut n_bytes_total) =
+            (vec![0.; n_codecs], vec![0.; n_codecs], 0, 0);
         for r in &self.results {
-            total_size += r.n_pixels;
+            n_pixels_total += r.n_pixels;
+            n_bytes_total += r.n_bytes;
             for i in 0..n_codecs {
                 // sum of medians is not the median of sums, but w/e, good enough here
                 total_decode_sec[i] += r.results[i].average_decode_sec(use_median);
                 total_encode_sec[i] += r.results[i].average_encode_sec(use_median);
             }
         }
+        let mpixels = n_pixels_total as f64 / 1e6;
+        let mbytes = n_bytes_total as f64 / 1024. / 1024.;
 
-        let (w_name, w_col) = (11, 13);
         println!("---");
         println!(
-            "Overall results: ({} images, {:.1} MB):",
+            "Overall results: ({} images, {:.2} MB raw, {:.2} MP):",
             self.results.len(),
-            total_size as f64 / 1024. / 1024.
+            mbytes,
+            mpixels
         );
-        println!("---");
-        print!("{:<w$}", "", w = w_name);
-        print!("{:>w$}", "decode:ms", w = w_col);
-        print!("{:>w$}", "encode:ms", w = w_col);
-        print!("{:>w$}", "decode:mp/s", w = w_col);
-        print!("{:>w$}", "encode:mp/s", w = w_col);
-        println!();
-        for (i, codec_name) in codec_names.iter().enumerate() {
-            let decode_sec = total_decode_sec[i];
-            let encode_sec = total_encode_sec[i];
-            let mpixels = total_size as f64 / 1e6;
-            let (decode_mpps, encode_mpps) = (mpixels / decode_sec, mpixels / encode_sec);
-
-            print!("{:<w$}", codec_name, w = w_name);
-            print!("{:>w$.2}", decode_sec * 1e3, w = w_col);
-            print!("{:>w$.2}", encode_sec * 1e3, w = w_col);
-            print!("{:>w$.1}", decode_mpps, w = w_col);
-            print!("{:>w$.1}", encode_mpps, w = w_col);
+        if fancy {
+            let (w_header, w_col) = (14, 12);
+            let n = n_codecs;
+            let print_sep = |s| print!("{}{:->w$}", s, "", w = w_header + n * w_col);
+            print_sep("");
+            print!("\n{:<w$}", "", w = w_header);
+            (0..n).for_each(|i| print!("{:>w$}", codec_names[i], w = w_col));
+            print_sep("\n");
+            // print!("\n{:<w$}", "         ms", w = w_header);
+            // (0..n).for_each(|i| print!("{:>w$.2}", total_decode_sec[i] * 1e3, w = w_col));
+            print!("\n{:<w$}", "decode   Mp/s", w = w_header);
+            (0..n).for_each(|i| print!("{:>w$.1}", mpixels / total_decode_sec[i], w = w_col));
+            print!("\n{:<w$}", "         MB/s", w = w_header);
+            (0..n).for_each(|i| print!("{:>w$.1}", mbytes / total_decode_sec[i], w = w_col));
+            print_sep("\n");
+            // print!("\n{:<w$}", "         ms", w = w_header);
+            // (0..n).for_each(|i| print!("{:>w$.2}", total_encode_sec[i] * 1e3, w = w_col));
+            print!("\n{:<w$}", "encode   Mp/s", w = w_header);
+            (0..n).for_each(|i| print!("{:>w$.1}", mpixels / total_encode_sec[i], w = w_col));
+            print!("\n{:<w$}", "         MB/s", w = w_header);
+            (0..n).for_each(|i| print!("{:>w$.1}", mbytes / total_encode_sec[i], w = w_col));
+            print_sep("\n");
             println!();
+        } else {
+            let (w_name, w_col) = (9, 13);
+            println!("---");
+            print!("{:<w$}", "", w = w_name);
+            // print!("{:>w$}", "decode:ms", w = w_col);
+            // print!("{:>w$}", "encode:ms", w = w_col);
+            print!("{:>w$}", "decode:Mp/s", w = w_col);
+            print!("{:>w$}", "encode:Mp/s", w = w_col);
+            print!("{:>w$}", "decode:MB/s", w = w_col);
+            print!("{:>w$}", "encode:MB/s", w = w_col);
+            println!();
+            for (i, codec_name) in codec_names.iter().enumerate() {
+                let decode_sec = total_decode_sec[i];
+                let encode_sec = total_encode_sec[i];
+                let (decode_mpps, encode_mpps) = (mpixels / decode_sec, mpixels / encode_sec);
+                let (decode_mbps, encode_mbps) = (mbytes / decode_sec, mbytes / encode_sec);
+                print!("{:<w$}", codec_name, w = w_name);
+                // print!("{:>w$.2}", decode_sec * 1e3, w = w_col);
+                // print!("{:>w$.2}", encode_sec * 1e3, w = w_col);
+                print!("{:>w$.1}", decode_mpps, w = w_col);
+                print!("{:>w$.1}", encode_mpps, w = w_col);
+                print!("{:>w$.1}", decode_mbps, w = w_col);
+                print!("{:>w$.1}", encode_mbps, w = w_col);
+                println!();
+            }
         }
     }
 }
@@ -322,11 +365,12 @@ impl BenchTotals {
 fn bench_png(filename: &Path, seconds: f64, use_median: bool) -> Result<ImageBench> {
     let f = filename.to_string_lossy();
     let img = Image::read_png(filename).context(format!("error reading PNG file: {}", f))?;
-    let size_kb = fs::metadata(filename)?.len() / 1024;
+    let size_png_kb = fs::metadata(filename)?.len() / 1024;
+    let size_mb_raw = img.n_bytes() as f64 / 1024. / 1024.;
     let mpixels = img.n_pixels() as f64 / 1e6;
     println!(
-        "{} ({}x{}:{}, {} KB, {:.2}MP)",
-        f, img.width, img.height, img.channels, size_kb, mpixels
+        "{} ({}x{}:{}, {} KB png, {:.2} MB raw, {:.2} MP)",
+        f, img.width, img.height, img.channels, size_png_kb, size_mb_raw, mpixels
     );
     let mut bench = ImageBench::new(&img);
     bench.run::<CodecQoiC>(&img, seconds)?;
@@ -335,7 +379,7 @@ fn bench_png(filename: &Path, seconds: f64, use_median: bool) -> Result<ImageBen
     Ok(bench)
 }
 
-fn bench_suite(files: &[PathBuf], seconds: f64, use_median: bool) -> Result<()> {
+fn bench_suite(files: &[PathBuf], seconds: f64, use_median: bool, fancy: bool) -> Result<()> {
     let mut totals = BenchTotals::new();
     for file in files {
         match bench_png(file, seconds, use_median) {
@@ -344,7 +388,7 @@ fn bench_suite(files: &[PathBuf], seconds: f64, use_median: bool) -> Result<()> 
         }
     }
     if totals.results.len() > 1 {
-        totals.report(use_median);
+        totals.report(use_median, fancy);
     }
     Ok(())
 }
@@ -360,6 +404,9 @@ struct Args {
     /// Use average (mean) instead of the median.
     #[structopt(short, long)]
     average: bool,
+    /// Simple totals, no fancy tables.
+    #[structopt(short, long)]
+    simple: bool,
 }
 
 fn main() -> Result<()> {
@@ -367,6 +414,6 @@ fn main() -> Result<()> {
     ensure!(!args.paths.is_empty(), "no input paths given");
     let files = find_pngs(&args.paths)?;
     ensure!(!files.is_empty(), "no PNG files found in given paths");
-    bench_suite(&files, args.seconds, !args.average)?;
+    bench_suite(&files, args.seconds, !args.average, !args.simple)?;
     Ok(())
 }
