@@ -42,20 +42,8 @@ fn test_encode_rgba() {
 }
 
 #[test]
-#[cfg(feature = "reference")]
-fn test_encode_run_start_len1_3ch_ref() {
-    test_chunk([[0, 0, 0], [11, 22, 33]], [QOI_OP_RUN | 0, QOI_OP_RGB]);
-}
-
-#[test]
-#[cfg(not(feature = "reference"))]
-fn test_encode_run_start_len1_3ch_non_ref() {
-    test_chunk([[0, 0, 0], [11, 22, 33]], [QOI_OP_INDEX | hash([0, 0, 0]), QOI_OP_RGB]);
-}
-
-#[test]
-fn test_encode_run_start_len2to62_3ch() {
-    for n in 2..=62 {
+fn test_encode_run_start_len1to62_3ch() {
+    for n in 1..=62 {
         let mut v = vec![[0, 0, 0]; n];
         v.push([11, 22, 33]);
         test_chunk(v, [QOI_OP_RUN | (n as u8 - 1), QOI_OP_RGB]);
@@ -72,24 +60,8 @@ fn test_encode_run_start_len1to62_4ch() {
 }
 
 #[test]
-#[cfg(feature = "reference")]
-fn test_encode_run_start_len63_3ch_ref() {
-    let mut v = vec![[0, 0, 0]; 63];
-    v.push([11, 22, 33]);
-    test_chunk(v, [QOI_OP_RUN | 61, QOI_OP_RUN | 0, QOI_OP_RGB]);
-}
-
-#[test]
-#[cfg(not(feature = "reference"))]
-fn test_encode_run_start_len63_3ch_non_ref() {
-    let mut v = vec![[0, 0, 0]; 63];
-    v.push([11, 22, 33]);
-    test_chunk(v, [QOI_OP_RUN | 61, QOI_OP_INDEX | hash([0, 0, 0]), QOI_OP_RGB]);
-}
-
-#[test]
-fn test_encode_run_start_64to124_3ch() {
-    for n in 64..=124 {
+fn test_encode_run_start_63to124_3ch() {
+    for n in 63..=124 {
         let mut v = vec![[0, 0, 0]; n];
         v.push([11, 22, 33]);
         test_chunk(v, [QOI_OP_RUN | 61, QOI_OP_RUN | (n as u8 - 63), QOI_OP_RGB]);
@@ -119,6 +91,24 @@ fn test_encode_run_end_4ch() {
     let px = [11, 33, 55, 77];
     test_chunk(
         [[1, 99, 2, 3], px, px, px],
+        [QOI_OP_RGBA, 1, 99, 2, 3, QOI_OP_RGBA, px[0], px[1], px[2], px[3], QOI_OP_RUN | 1],
+    );
+}
+
+#[test]
+fn test_encode_run_mid_3ch() {
+    let px = [11, 33, 55];
+    test_chunk(
+        [[1, 99, 2], px, px, px, [1, 2, 3]],
+        [QOI_OP_RGB, 1, 99, 2, QOI_OP_RGB, px[0], px[1], px[2], QOI_OP_RUN | 1],
+    );
+}
+
+#[test]
+fn test_encode_run_mid_4ch() {
+    let px = [11, 33, 55, 77];
+    test_chunk(
+        [[1, 99, 2, 3], px, px, px, [1, 2, 3, 4]],
         [QOI_OP_RGBA, 1, 99, 2, 3, QOI_OP_RGBA, px[0], px[1], px[2], px[3], QOI_OP_RUN | 1],
     );
 }
