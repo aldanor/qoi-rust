@@ -1,7 +1,7 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-use qoi_fast::{encode_size_limit, encode_to_vec};
+use qoi::{encode_size_limit, encode_to_vec};
 
 fuzz_target!(|input: (bool, u8, &[u8])| {
     let (is_4, w_frac, data) = input;

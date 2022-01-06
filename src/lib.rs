@@ -10,7 +10,7 @@
 //! ### Examples
 //!
 //! ```rust
-//! use qoi_fast::{encode_to_vec, decode_to_vec};
+//! use qoi::{encode_to_vec, decode_to_vec};
 //!
 //! let encoded = encode_to_vec(&pixels, width, height)?;
 //! let (header, decoded) = decode_to_vec(&encoded)?;
@@ -25,7 +25,7 @@
 //! ```
 //!              decode:Mp/s  encode:Mp/s  decode:MB/s  encode:MB/s
 //! qoi.h              282.9        225.3        978.3        778.9
-//! qoi-fast           427.4        290.0       1477.7       1002.9
+//! qoi-rust           427.4        290.0       1477.7       1002.9
 //! ```
 //!
 //! - Reference C implementation:

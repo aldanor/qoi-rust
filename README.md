@@ -1,8 +1,8 @@
-# [qoi-fast](https://crates.io/crates/qoi-fast)
+# [qoi](https://crates.io/crates/qoi)
 
-[![Build](https://github.com/aldanor/qoi-fast/workflows/CI/badge.svg)](https://github.com/aldanor/qoi-fast/actions?query=branch%3Amaster)
-[![Latest Version](https://img.shields.io/crates/v/qoi-fast.svg)](https://crates.io/crates/qoi-fast)
-[![Documentation](https://img.shields.io/docsrs/qoi-fast)](https://docs.rs/qoi-fast)
+[![Build](https://github.com/aldanor/qoi-rust/workflows/CI/badge.svg)](https://github.com/aldanor/qoi-rust/actions?query=branch%3Amaster)
+[![Latest Version](https://img.shields.io/crates/v/qoi.svg)](https://crates.io/crates/qoi)
+[![Documentation](https://img.shields.io/docsrs/qoi)](https://docs.rs/qoi)
 [![Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance)
@@ -19,7 +19,7 @@ Fast encoder/decoder for [QOI image format](https://qoiformat.org/), implemented
 ### Examples
 
 ```rust
-use qoi_fast::{encode_to_vec, decode_to_vec};
+use qoi::{encode_to_vec, decode_to_vec};
 
 let encoded = encode_to_vec(&pixels, width, height)?;
 let (header, decoded) = decode_to_vec(&encoded)?;
@@ -34,7 +34,7 @@ assert_eq!(decoded, pixels);
 ```
              decode:Mp/s  encode:Mp/s  decode:MB/s  encode:MB/s
 qoi.h              282.9        225.3        978.3        778.9
-qoi-fast           427.4        290.0       1477.7       1002.9
+qoi-rust           427.4        290.0       1477.7       1002.9
 ```
 
 - Reference C implementation:

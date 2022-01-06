@@ -2,11 +2,11 @@ mod common;
 
 use bytemuck::{cast_slice, Pod};
 
-use qoi_fast::consts::{
+use qoi::consts::{
     QOI_HEADER_SIZE, QOI_OP_DIFF, QOI_OP_INDEX, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA, QOI_OP_RUN,
     QOI_PADDING_SIZE,
 };
-use qoi_fast::{decode_to_vec, encode_to_vec};
+use qoi::{decode_to_vec, encode_to_vec};
 
 use self::common::hash;
 

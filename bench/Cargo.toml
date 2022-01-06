@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 # internal
 libqoi = { path = "../libqoi" }
-qoi-fast = { path = ".." }
+qoi = { path = ".." }
 # external
 anyhow = "1.0"
 bytemuck = "1.7"

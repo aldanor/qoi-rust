@@ -129,21 +129,21 @@ trait Codec {
     fn decode(data: &[u8], img: &Image) -> Result<Self::Output>;
 }
 
-struct CodecQoiFast;
+struct CodecQoiRust;
 
-impl Codec for CodecQoiFast {
+impl Codec for CodecQoiRust {
     type Output = Vec<u8>;
 
     fn name() -> &'static str {
-        "qoi-fast"
+        "qoi-rust"
     }
 
     fn encode(img: &Image) -> Result<Vec<u8>> {
-        Ok(qoi_fast::encode_to_vec(&img.data, img.width, img.height)?)
+        Ok(qoi::encode_to_vec(&img.data, img.width, img.height)?)
     }
 
     fn decode(data: &[u8], _img: &Image) -> Result<Vec<u8>> {
-        Ok(qoi_fast::decode_to_vec(data)?.1)
+        Ok(qoi::decode_to_vec(data)?.1)
     }
 }
 
@@ -215,7 +215,7 @@ impl ImageBench {
         let (decoded, t_decode) = timeit(|| C::decode(encoded.as_ref(), img));
         let decoded = decoded?;
         let roundtrip = decoded.as_ref() == img.data.as_slice();
-        if C::name() == "qoi-fast" {
+        if C::name() == "qoi-rust" {
             assert!(roundtrip, "{}: decoded data doesn't roundtrip", C::name());
         } else {
             ensure!(roundtrip, "{}: decoded data doesn't roundtrip", C::name());
@@ -374,7 +374,7 @@ fn bench_png(filename: &Path, seconds: f64, use_median: bool) -> Result<ImageBen
     );
     let mut bench = ImageBench::new(&img);
     bench.run::<CodecQoiC>(&img, seconds)?;
-    bench.run::<CodecQoiFast>(&img, seconds)?;
+    bench.run::<CodecQoiRust>(&img, seconds)?;
     bench.report(use_median);
     Ok(bench)
 }

@@ -5,7 +5,7 @@ use anyhow::{bail, Result};
 use cfg_if::cfg_if;
 use walkdir::{DirEntry, WalkDir};
 
-use qoi_fast::{decode_to_vec, encode_to_vec};
+use qoi::{decode_to_vec, encode_to_vec};
 
 fn find_qoi_png_pairs(root: impl AsRef<Path>) -> Vec<(PathBuf, PathBuf)> {
     let root = root.as_ref();

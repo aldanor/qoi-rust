@@ -1,14 +1,14 @@
 [package]
-name = "qoi-fast"
-version = "0.2.0"
-description = "Fast encoder/decoder for QOI (Quite Okay Image) format"
+name = "qoi"
+version = "0.4.0"
+description = "VERY fast encoder/decoder for QOI (Quite Okay Image) format"
 authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
 edition = "2018"
 readme = "README.md"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/aldanor/qoi-fast"
-homepage = "https://github.com/aldanor/qoi-fast"
-documentation = "https://docs.rs/qoi-fast"
+repository = "https://github.com/aldanor/qoi-rust"
+homepage = "https://github.com/aldanor/qoi-rust"
+documentation = "https://docs.rs/qoi"
 categories = ["multimedia::images", "multimedia::encoding"]
 keywords = ["qoi", "graphics", "image", "encoding"]
 exclude = [
@@ -37,7 +37,7 @@ rand = "0.8"
 libqoi = { path = "libqoi"}
 
 [lib]
-name = "qoi_fast"
+name = "qoi"
 path = "src/lib.rs"
 doctest = false
 

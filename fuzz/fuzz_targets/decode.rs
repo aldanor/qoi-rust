@@ -1,7 +1,7 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-use qoi_fast::{decode_header, decode_to_vec, Channels, ColorSpace, Header};
+use qoi::{decode_header, decode_to_vec, Channels, ColorSpace, Header};
 
 fuzz_target!(|input: (u16, u16, bool, &[u8])| {
     let (w, h, is_4, data) = input;
