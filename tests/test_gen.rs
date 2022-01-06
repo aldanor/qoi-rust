@@ -1,10 +1,18 @@
 mod common;
 
+use bytemuck::cast_slice;
+use std::borrow::Cow;
+use std::fmt::Debug;
+
 use cfg_if::cfg_if;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use libqoi::{qoi_decode, qoi_encode};
-use qoi_fast::{decode_to_vec, encode_to_vec};
+use qoi_fast::consts::{
+    QOI_HEADER_SIZE, QOI_MASK_2, QOI_OP_DIFF, QOI_OP_INDEX, QOI_OP_LUMA, QOI_OP_RGB, QOI_OP_RGBA,
+    QOI_OP_RUN, QOI_PADDING_SIZE,
+};
+use qoi_fast::{decode_header, decode_to_vec, encode_to_vec};
 
 use self::common::hash;
 
@@ -135,6 +143,132 @@ impl ImageGen {
     }
 }
 
+fn format_encoded(encoded: &[u8]) -> String {
+    let header = decode_header(encoded).unwrap();
+    let mut data = &encoded[QOI_HEADER_SIZE..encoded.len() - QOI_PADDING_SIZE];
+    let mut s = format!("{}x{}:{} = [", header.width, header.height, header.channels.as_u8());
+    while !data.is_empty() {
+        let b1 = data[0];
+        data = &data[1..];
+        match b1 {
+            QOI_OP_RGB => {
+                s.push_str(&format!("rgb({},{},{})", data[0], data[1], data[2]));
+                data = &data[3..];
+            }
+            QOI_OP_RGBA => {
+                s.push_str(&format!("rgba({},{},{},{})", data[0], data[1], data[2], data[3]));
+                data = &data[4..];
+            }
+            _ => match b1 & QOI_MASK_2 {
+                QOI_OP_INDEX => s.push_str(&format!("index({})", b1 & 0x3f)),
+                QOI_OP_RUN => s.push_str(&format!("run({})", b1 & 0x3f)),
+                QOI_OP_DIFF => s.push_str(&format!(
+                    "diff({},{},{})",
+                    (b1 >> 4) & 0x03,
+                    (b1 >> 2) & 0x03,
+                    b1 & 0x03
+                )),
+                QOI_OP_LUMA => {
+                    let b2 = data[0];
+                    data = &data[1..];
+                    s.push_str(&format!("luma({},{},{})", (b2 >> 4) & 0x0f, b1 & 0x3f, b2 & 0x0f))
+                }
+                _ => {}
+            },
+        }
+        s.push_str(", ");
+    }
+    s.pop().unwrap();
+    s.pop().unwrap();
+    s.push(']');
+    s
+}
+
+fn check_roundtrip<E, D, VE, VD, EE, ED>(
+    msg: &str, mut data: &[u8], channels: usize, encode: E, decode: D,
+) where
+    E: Fn(&[u8], u32) -> Result<VE, EE>,
+    D: Fn(&[u8]) -> Result<VD, ED>,
+    VE: AsRef<[u8]>,
+    VD: AsRef<[u8]>,
+    EE: Debug,
+    ED: Debug,
+{
+    macro_rules! rt {
+        ($data:expr, $n:expr) => {
+            decode(encode($data, $n as _).unwrap().as_ref()).unwrap()
+        };
+    }
+    macro_rules! fail {
+        ($msg:expr, $data:expr, $decoded:expr, $encoded:expr, $channels:expr) => {
+            assert!(
+                false,
+                "{} roundtrip failed\n\n  image: {:?}\ndecoded: {:?}\nencoded: {}",
+                $msg,
+                cast_slice::<_, [u8; $channels]>($data.as_ref()),
+                cast_slice::<_, [u8; $channels]>($decoded.as_ref()),
+                format_encoded($encoded.as_ref()),
+            );
+        };
+    }
+
+    let mut n_pixels = data.len() / channels;
+    assert_eq!(n_pixels * channels, data.len());
+
+    // if all ok, return
+    // ... but if roundtrip check fails, try to reduce the example to the smallest we can find
+    if rt!(data, n_pixels).as_ref() == data {
+        return;
+    }
+
+    // try removing pixels from the beginning
+    while n_pixels > 1 {
+        let slice = &data[..data.len() - channels];
+        if rt!(slice, n_pixels - 1).as_ref() != slice {
+            data = slice;
+            n_pixels -= 1;
+        } else {
+            break;
+        }
+    }
+
+    // try removing pixels from the end
+    while n_pixels > 1 {
+        let slice = &data[channels..];
+        if rt!(slice, n_pixels - 1).as_ref() != slice {
+            data = slice;
+            n_pixels -= 1;
+        } else {
+            break;
+        }
+    }
+
+    // try removing pixels from the middle
+    let mut data = Cow::from(data);
+    let mut pos = 1;
+    while n_pixels > 1 && pos < n_pixels - 1 {
+        let mut vec = data.to_vec();
+        for _ in 0..channels {
+            vec.remove(pos * channels);
+        }
+        if rt!(vec.as_slice(), n_pixels - 1).as_ref() != vec.as_slice() {
+            data = Cow::from(vec);
+            n_pixels -= 1;
+        } else {
+            pos += 1;
+        }
+    }
+
+    let encoded = encode(data.as_ref(), n_pixels as _).unwrap();
+    let decoded = decode(encoded.as_ref()).unwrap();
+    assert_ne!(decoded.as_ref(), data.as_ref());
+    if channels == 3 {
+        fail!(msg, data, decoded, encoded, 3);
+    } else {
+        fail!(msg, data, decoded, encoded, 4);
+    }
+}
+
 #[test]
 fn test_generated() {
     let mut rng = StdRng::seed_from_u64(0);
@@ -145,27 +279,28 @@ fn test_generated() {
         let channels = rng.gen_range(3..=4);
         let gen = ImageGen::new_random(&mut rng);
         let img = gen.generate(&mut rng, channels, min_len);
-        let size = img.len() / channels;
 
-        let encoded = encode_to_vec(&img, size as _, 1).unwrap();
-        let decoded = decode_to_vec(&encoded).unwrap().1;
-        assert_eq!(&img, &decoded, "qoi-fast: roundtrip fail");
+        let encode = |data: &[u8], size| encode_to_vec(data, size, 1);
+        let decode = |data: &[u8]| decode_to_vec(data).map(|r| r.1);
+        let encode_c = |data: &[u8], size| qoi_encode(data, size, 1, channels as _);
+        let decode_c = |data: &[u8]| qoi_decode(data, channels as _).map(|r| r.1);
 
-        let encoded_c = qoi_encode(&img, size as _, 1, channels as _).unwrap();
-        let decoded_c = qoi_decode(encoded_c.as_ref(), channels as _).unwrap().1;
-        assert_eq!(&img, decoded_c.as_ref(), "qoi.h: roundtrip fail");
+        check_roundtrip("qoi-fast -> qoi-fast", &img, channels as _, encode, decode);
+        check_roundtrip("qoi-fast -> qoi.h", &img, channels as _, encode, decode_c);
+        check_roundtrip("qoi.h -> qoi-fast", &img, channels as _, encode_c, decode);
 
+        let size = (img.len() / channels) as u32;
+        let encoded = encode(&img, size).unwrap();
+        let encoded_c = encode_c(&img, size).unwrap();
         cfg_if! {
             if #[cfg(feature = "reference")] {
-                assert_eq!(&encoded, encoded_c.as_ref(), "qoi-fast[reference] doesn't match qoi.h");
+                let eq = encoded.as_slice() == encoded_c.as_ref();
+                assert!(eq, "qoi-fast [reference mode] doesn't match qoi.h");
+            } else {
+                let eq = encoded.len() == encoded_c.len();
+                assert!(eq, "qoi-fast [non-reference mode] length doesn't match qoi.h");
             }
         }
-
-        let encoded_internal_decoded_c = qoi_decode(encoded.as_ref(), channels as _).unwrap().1;
-        assert_eq!(encoded_internal_decoded_c.as_ref(), &img, "qoi-fast -> qoi.h: roundtrip fail");
-
-        let encoded_c_decoded_internal = decode_to_vec(encoded_c.as_ref()).unwrap().1;
-        assert_eq!(&encoded_c_decoded_internal, &img, "qoi.h -> qoi-fast: roundtrip fail");
 
         n_pixels += size;
     }
