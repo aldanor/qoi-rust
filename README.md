@@ -31,16 +31,20 @@ assert_eq!(decoded, pixels);
 
 ### Benchmarks
 
-Comparison to the reference C implementation
-(as of [00e34217](https://github.com/phoboslab/qoi/commit/00e34217)),
-benchmarks timings collected on Apple M1 (1782 images, 1187 MB total):
-
 ```
-codec          decode:ms    encode:ms  decode:mp/s  encode:mp/s
-
-qoi-c            4389.75      5524.18        283.5        225.3
-qoi-fast         3026.68      4304.26        411.2        289.2
+             decode:Mp/s  encode:Mp/s  decode:MB/s  encode:MB/s
+             
+qoi.h              282.9        225.3        978.3        778.9
+qoi-fast           427.4        290.0       1477.7       1002.9
 ```
+
+- Reference C implementation:
+  [phoboslab/qoi@00e34217](https://github.com/phoboslab/qoi/commit/00e34217).
+- Benchmark timings were collected on an Apple M1 laptop.
+- 2846 images from the suite provided upstream
+  ([tarball](https://phoboslab.org/files/qoibench/qoi_benchmark_suite.tar)):
+  all pngs except two with broken checksums.
+- 1.32 GPixels in total with 4.46 GB of raw pixel data.
 
 Benchmarks have also been run for all of the other Rust implementations
 of QOI for comparison purposes and, at the time of writing this document,
