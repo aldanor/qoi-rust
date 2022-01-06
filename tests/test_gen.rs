@@ -5,7 +5,11 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 
 use cfg_if::cfg_if;
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{
+    distributions::{Distribution, Standard},
+    rngs::StdRng,
+    Rng, SeedableRng,
+};
 
 use libqoi::{qoi_decode, qoi_encode};
 use qoi_fast::consts::{
@@ -64,7 +68,7 @@ struct ImageGen {
 
 impl ImageGen {
     pub fn new_random(rng: &mut impl Rng) -> Self {
-        let p = [0; 6].map(|_| rng.gen::<f64>());
+        let p: [f64; 6] = rng.gen();
         let t = p.iter().sum::<f64>();
         Self {
             p_new: p[0] / t,
@@ -83,7 +87,10 @@ impl ImageGen {
         }
     }
 
-    fn generate_const<R: Rng, const N: usize>(&self, rng: &mut R, min_len: usize) -> Vec<u8> {
+    fn generate_const<R: Rng, const N: usize>(&self, rng: &mut R, min_len: usize) -> Vec<u8>
+    where
+        Standard: Distribution<[u8; N]>,
+    {
         let mut s = GenState::<N>::with_capacity(min_len);
         let zero = GenState::<N>::zero();
 
@@ -91,7 +98,7 @@ impl ImageGen {
             let mut p = rng.gen_range(0.0..1.0);
 
             if p < self.p_new {
-                s.write([0; N].map(|_| rng.gen()));
+                s.write(rng.gen());
                 continue;
             }
             p -= self.p_new;
@@ -115,10 +122,9 @@ impl ImageGen {
 
             if p < self.p_diff {
                 let mut px = s.prev;
-                let d = [0; 3].map(|_| rng.gen_range(0_u8..4).wrapping_sub(2));
-                px[0] = px[0].wrapping_add(d[0]);
-                px[1] = px[1].wrapping_add(d[0]);
-                px[2] = px[2].wrapping_add(d[0]);
+                px[0] = px[0].wrapping_add(rng.gen_range(0_u8..4).wrapping_sub(2));
+                px[1] = px[1].wrapping_add(rng.gen_range(0_u8..4).wrapping_sub(2));
+                px[2] = px[2].wrapping_add(rng.gen_range(0_u8..4).wrapping_sub(2));
                 s.write(px);
                 continue;
             }
