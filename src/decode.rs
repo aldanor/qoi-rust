@@ -230,7 +230,7 @@ pub trait Reader: Sized {
     fn decode_image(&mut self, out: &mut [u8], channels: u8, src_channels: u8) -> Result<()>;
 }
 
-struct Bytes<'a>(&'a [u8]);
+pub struct Bytes<'a>(&'a [u8]);
 
 impl<'a> Bytes<'a> {
     #[inline]
