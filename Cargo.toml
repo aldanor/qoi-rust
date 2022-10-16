@@ -3,7 +3,7 @@ name = "qoi"
 version = "0.4.0"
 description = "VERY fast encoder/decoder for QOI (Quite Okay Image) format"
 authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/aldanor/qoi-rust"
@@ -14,7 +14,7 @@ keywords = ["qoi", "graphics", "image", "encoding"]
 exclude = [
     "assets/*",
 ]
-rust-version = "1.51.0"
+rust-version = "1.61.0"
 
 [features]
 default = ["std"]
