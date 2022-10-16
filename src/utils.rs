@@ -84,7 +84,7 @@ pub struct GenericWriter<W> {
 
 #[cfg(feature = "std")]
 impl<W: Write> GenericWriter<W> {
-    pub fn new(writer: W) -> Self {
+    pub const fn new(writer: W) -> Self {
         Self { writer, n_written: 0 }
     }
 }

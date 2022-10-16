@@ -230,7 +230,7 @@ pub trait Reader: Sized {
     fn decode_image(&mut self, out: &mut [u8], channels: u8, src_channels: u8) -> Result<()>;
 }
 
-struct Bytes<'a>(&'a [u8]);
+pub struct Bytes<'a>(&'a [u8]);
 
 impl<'a> Bytes<'a> {
     #[inline]
@@ -318,12 +318,13 @@ impl<R: Read> Decoder<R> {
 
     /// Returns an immutable reference to the underlying reader.
     #[inline]
-    pub fn reader(&self) -> &R {
+    pub const fn reader(&self) -> &R {
         &self.reader
     }
 
     /// Consumes the decoder and returns the underlying reader back.
     #[inline]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn into_reader(self) -> R {
         self.reader
     }
@@ -343,7 +344,7 @@ impl<R: Reader> Decoder<R> {
     /// to decode RGB into RGBA (in which case the alpha channel will be set
     /// to 255), and vice versa (in which case the alpha channel will be ignored).
     #[inline]
-    pub fn with_channels(mut self, channels: Channels) -> Self {
+    pub const fn with_channels(mut self, channels: Channels) -> Self {
         self.channels = channels;
         self
     }
@@ -352,13 +353,13 @@ impl<R: Reader> Decoder<R> {
     ///
     /// Note: this may differ from the number of channels specified in the header.
     #[inline]
-    pub fn channels(&self) -> Channels {
+    pub const fn channels(&self) -> Channels {
         self.channels
     }
 
     /// Returns the decoded image header.
     #[inline]
-    pub fn header(&self) -> &Header {
+    pub const fn header(&self) -> &Header {
         &self.header
     }
 
@@ -366,7 +367,7 @@ impl<R: Reader> Decoder<R> {
     ///
     /// Can be used to pre-allocate the buffer to decode the image into.
     #[inline]
-    pub fn required_buf_len(&self) -> usize {
+    pub const fn required_buf_len(&self) -> usize {
         self.header.n_pixels().saturating_mul(self.channels.as_u8() as usize)
     }
 
