@@ -23,7 +23,7 @@ std = []        # std mode (enabled by default) - provides access to `std::io`, 
 reference = []  # follows reference encoder implementation precisely, but may be slightly slower
 
 [dependencies]
-bytemuck = "1.7"
+bytemuck = "1.12"
 
 [workspace]
 members = ["libqoi", "bench"]
