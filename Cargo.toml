@@ -1,6 +1,6 @@
 [package]
 name = "qoi"
-version = "0.4.0"
+version = "0.4.1"
 description = "VERY fast encoder/decoder for QOI (Quite Okay Image) format"
 authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
 edition = "2021"
