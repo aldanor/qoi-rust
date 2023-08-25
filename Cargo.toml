@@ -13,6 +13,9 @@ categories = ["multimedia::images", "multimedia::encoding"]
 keywords = ["qoi", "graphics", "image", "encoding"]
 exclude = [
     "assets/*",
+    "doc",
+    "ext",
+    "tests/test_gen.rs",
 ]
 rust-version = "1.61.0"
 
