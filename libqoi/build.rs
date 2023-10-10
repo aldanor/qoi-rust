@@ -12,7 +12,7 @@ fn main() {
         .include("../ext/qoi")
         .define("QOI_NO_STDIO", None)
         .define("QOI_IMPLEMENTATION", None)
-        .flag("-Wno-unsequenced")
+        .flag_if_supported("-Wno-unsequenced")
         .opt_level(3)
         .compile("qoi");
 }
