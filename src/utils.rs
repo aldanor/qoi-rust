@@ -93,12 +93,12 @@ impl<W: Write> GenericWriter<W> {
 impl<W: Write> Writer for GenericWriter<W> {
     fn write_one(mut self, v: u8) -> Result<Self> {
         self.n_written += 1;
-        self.writer.write_all(&[v]).map(|_| self).map_err(Into::into)
+        self.writer.write_all(&[v]).map(|()| self).map_err(Into::into)
     }
 
     fn write_many(mut self, v: &[u8]) -> Result<Self> {
         self.n_written += v.len();
-        self.writer.write_all(v).map(|_| self).map_err(Into::into)
+        self.writer.write_all(v).map(|()| self).map_err(Into::into)
     }
 
     fn capacity(&self) -> usize {
