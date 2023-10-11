@@ -38,7 +38,7 @@ qoi-rust           427.4        290.0       1477.7       1002.9
 ```
 
 - Reference C implementation:
-  [phoboslab/qoi@00e34217](https://github.com/phoboslab/qoi/commit/00e34217).
+  [phoboslab/qoi@8d35d93](https://github.com/phoboslab/qoi/commit/8d35d93).
 - Benchmark timings were collected on an Apple M1 laptop.
 - 2846 images from the suite provided upstream
   ([tarball](https://phoboslab.org/files/qoibench/qoi_benchmark_suite.tar)):
@@ -51,7 +51,7 @@ this library proved to be the fastest one by a noticeable margin.
 
 ### Rust version
 
-The minimum required Rust version for the latest crate version is 1.61.0.
+The minimum required Rust version for the latest crate version is 1.62.0.
 
 ### `no_std`
 

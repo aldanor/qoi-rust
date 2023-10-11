@@ -37,19 +37,19 @@ impl Display for Error {
                 write!(f, "invalid magic: expected {:?}, got {:?}", QOI_MAGIC, magic.to_be_bytes())
             }
             Self::InvalidChannels { channels } => {
-                write!(f, "invalid number of channels: {}", channels)
+                write!(f, "invalid number of channels: {channels}")
             }
             Self::InvalidColorSpace { colorspace } => {
-                write!(f, "invalid color space: {} (expected 0 or 1)", colorspace)
+                write!(f, "invalid color space: {colorspace} (expected 0 or 1)")
             }
             Self::InvalidImageDimensions { width, height } => {
-                write!(f, "invalid image dimensions: {}x{}", width, height)
+                write!(f, "invalid image dimensions: {width}x{height}")
             }
             Self::InvalidImageLength { size, width, height } => {
-                write!(f, "invalid image length: {} bytes for {}x{}", size, width, height)
+                write!(f, "invalid image length: {size} bytes for {width}x{height}")
             }
             Self::OutputBufferTooSmall { size, required } => {
-                write!(f, "output buffer size too small: {} (required: {})", size, required)
+                write!(f, "output buffer size too small: {size} (required: {required})")
             }
             Self::UnexpectedBufferEnd => {
                 write!(f, "unexpected input buffer end while decoding")
@@ -59,7 +59,7 @@ impl Display for Error {
             }
             #[cfg(feature = "std")]
             Self::IoError(ref err) => {
-                write!(f, "i/o error: {}", err)
+                write!(f, "i/o error: {err}")
             }
         }
     }

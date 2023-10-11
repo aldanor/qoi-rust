@@ -137,7 +137,7 @@ pub fn decode_header(data: impl AsRef<[u8]>) -> Result<Header> {
     Header::decode(data)
 }
 
-#[cfg(any(feature = "std"))]
+#[cfg(feature = "std")]
 #[inline]
 fn decode_impl_stream<R: Read, const N: usize, const RGBA: bool>(
     data: &mut R, out: &mut [u8],
