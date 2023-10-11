@@ -51,7 +51,7 @@ this library proved to be the fastest one by a noticeable margin.
 
 ### Rust version
 
-The minimum required Rust version for the latest crate version is 1.61.0.
+The minimum required Rust version for the latest crate version is 1.62.0.
 
 ### `no_std`
 

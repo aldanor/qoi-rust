@@ -14,7 +14,7 @@ keywords = ["qoi", "graphics", "image", "encoding"]
 exclude = [
     "assets/*",
 ]
-rust-version = "1.61.0"
+rust-version = "1.62.0"
 
 [features]
 default = ["std"]
