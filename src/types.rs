@@ -111,3 +111,60 @@ impl TryFrom<u8> for Channels {
         }
     }
 }
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum RawChannels {
+    Rgb,
+    Bgr,
+    Rgba,
+    Argb,
+    Rgbx,
+    Xrgb,
+    Bgra,
+    Abgr,
+    Bgrx,
+    Xbgr,
+}
+
+impl From<Channels> for RawChannels {
+    fn from(value: Channels) -> Self {
+        match value {
+            Channels::Rgb => RawChannels::Rgb,
+            Channels::Rgba => RawChannels::Rgba,
+        }
+    }
+}
+
+impl From<RawChannels> for Channels {
+    fn from(value: RawChannels) -> Self {
+        match value {
+            RawChannels::Rgb => Channels::Rgb,
+            RawChannels::Bgr => Channels::Rgb,
+            RawChannels::Rgba => Channels::Rgba,
+            RawChannels::Argb => Channels::Rgba,
+            RawChannels::Rgbx => Channels::Rgb,
+            RawChannels::Xrgb => Channels::Rgb,
+            RawChannels::Bgra => Channels::Rgba,
+            RawChannels::Abgr => Channels::Rgba,
+            RawChannels::Bgrx => Channels::Rgb,
+            RawChannels::Xbgr => Channels::Rgb,
+        }
+    }
+}
+
+impl RawChannels {
+    pub(crate) fn bytes_per_pixel(&self) -> usize {
+        match self {
+            RawChannels::Rgb => 3,
+            RawChannels::Bgr => 3,
+            RawChannels::Rgba => 4,
+            RawChannels::Argb => 4,
+            RawChannels::Rgbx => 4,
+            RawChannels::Xrgb => 4,
+            RawChannels::Bgra => 4,
+            RawChannels::Abgr => 4,
+            RawChannels::Bgrx => 4,
+            RawChannels::Xbgr => 4,
+        }
+    }
+}
