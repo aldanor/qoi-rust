@@ -111,3 +111,65 @@ impl TryFrom<u8> for Channels {
         }
     }
 }
+
+/// Pixel format for the source image.
+///
+/// The layout does not depend on the endianness of the system.
+/// The components are stored as bytes in the given order.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum SourceChannels {
+    /// Pixel is R, G and B channels
+    Rgb,
+    /// Pixel is B, G and R channels
+    Bgr,
+    /// Pixel is RGB with an alpha channel
+    Rgba,
+    /// Pixel is an alpha channel and RGB
+    Argb,
+    /// Pixel is RGB with an extra byte
+    Rgbx,
+    /// Pixel is an extra byte and RGB
+    Xrgb,
+    /// Pixel is BGR with an alpha channel
+    Bgra,
+    /// Pixel is an alpha channel and BGR
+    Abgr,
+    /// Pixel is BGR with an extra byte
+    Bgrx,
+    /// Pixel is an extra byte and BGR
+    Xbgr,
+}
+
+impl From<Channels> for SourceChannels {
+    fn from(value: Channels) -> Self {
+        match value {
+            Channels::Rgb => Self::Rgb,
+            Channels::Rgba => Self::Rgba,
+        }
+    }
+}
+
+impl SourceChannels {
+    pub(crate) const fn image_channels(self) -> Channels {
+        match self {
+            Self::Rgb | Self::Bgr | Self::Rgbx | Self::Xrgb | Self::Bgrx | Self::Xbgr => {
+                Channels::Rgb
+            }
+            Self::Rgba | Self::Argb | Self::Bgra | Self::Abgr => Channels::Rgba,
+        }
+    }
+
+    pub(crate) const fn bytes_per_pixel(self) -> usize {
+        match self {
+            Self::Rgb | Self::Bgr => 3,
+            Self::Rgba
+            | Self::Argb
+            | Self::Rgbx
+            | Self::Xrgb
+            | Self::Bgra
+            | Self::Abgr
+            | Self::Bgrx
+            | Self::Xbgr => 4,
+        }
+    }
+}
