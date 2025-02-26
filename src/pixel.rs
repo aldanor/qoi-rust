@@ -5,6 +5,7 @@ use bytemuck::{cast, Pod};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(transparent)]
+// in RGBA order
 pub struct Pixel<const N: usize>([u8; N]);
 
 impl<const N: usize> Pixel<N> {

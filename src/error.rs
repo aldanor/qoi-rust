@@ -22,6 +22,8 @@ pub enum Error {
     UnexpectedBufferEnd,
     /// Invalid stream end marker encountered when decoding
     InvalidPadding,
+    /// Invalid stride
+    InvalidStride { stride: usize },
     #[cfg(feature = "std")]
     /// Generic I/O error from the wrapped reader/writer
     IoError(std::io::Error),
@@ -56,6 +58,9 @@ impl Display for Error {
             }
             Self::InvalidPadding => {
                 write!(f, "invalid padding (stream end marker mismatch)")
+            }
+            Self::InvalidStride { stride } => {
+                write!(f, "invalid stride: {stride}")
             }
             #[cfg(feature = "std")]
             Self::IoError(ref err) => {

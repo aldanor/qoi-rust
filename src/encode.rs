@@ -10,13 +10,16 @@ use crate::consts::{QOI_HEADER_SIZE, QOI_OP_INDEX, QOI_OP_RUN, QOI_PADDING, QOI_
 use crate::error::{Error, Result};
 use crate::header::Header;
 use crate::pixel::{Pixel, SupportedChannels};
-use crate::types::{Channels, ColorSpace};
+use crate::types::{Channels, ColorSpace, RawChannels};
 #[cfg(feature = "std")]
 use crate::utils::GenericWriter;
 use crate::utils::{unlikely, BytesMut, Writer};
 
 #[allow(clippy::cast_possible_truncation, unused_assignments, unused_variables)]
-fn encode_impl<W: Writer, const N: usize>(mut buf: W, data: &[u8]) -> Result<usize>
+fn encode_impl<W: Writer, const N: usize, const R: usize>(
+    mut buf: W, data: &[u8], width: usize, height: usize, stride: usize,
+    read_px: impl Fn(&mut Pixel<N>, &[u8]),
+) -> Result<usize>
 where
     Pixel<N>: SupportedChannels,
     [u8; N]: Pod,
@@ -30,57 +33,55 @@ where
     let mut px = Pixel::<N>::new().with_a(0xff);
     let mut index_allowed = false;
 
-    let n_pixels = data.len() / N;
+    let n_pixels = width * height;
 
-    for (i, chunk) in data.chunks_exact(N).enumerate() {
-        px.read(chunk);
-        if px == px_prev {
-            run += 1;
-            if run == 62 || unlikely(i == n_pixels - 1) {
-                buf = buf.write_one(QOI_OP_RUN | (run - 1))?;
-                run = 0;
-            }
-        } else {
-            if run != 0 {
-                #[cfg(not(feature = "reference"))]
-                {
-                    // credits for the original idea: @zakarumych (had to be fixed though)
-                    buf = buf.write_one(if run == 1 && index_allowed {
-                        QOI_OP_INDEX | hash_prev
-                    } else {
-                        QOI_OP_RUN | (run - 1)
-                    })?;
-                }
-                #[cfg(feature = "reference")]
-                {
+    let mut i = 0;
+    for row in data.chunks(stride).take(height) {
+        let pixel_row = &row[..width * R];
+        for chunk in pixel_row.chunks_exact(R) {
+            read_px(&mut px, chunk);
+            if px == px_prev {
+                run += 1;
+                if run == 62 || unlikely(i == n_pixels - 1) {
                     buf = buf.write_one(QOI_OP_RUN | (run - 1))?;
+                    run = 0;
                 }
-                run = 0;
-            }
-            index_allowed = true;
-            let px_rgba = px.as_rgba(0xff);
-            hash_prev = px_rgba.hash_index();
-            let index_px = &mut index[hash_prev as usize];
-            if *index_px == px_rgba {
-                buf = buf.write_one(QOI_OP_INDEX | hash_prev)?;
             } else {
-                *index_px = px_rgba;
-                buf = px.encode_into(px_prev, buf)?;
+                if run != 0 {
+                    #[cfg(not(feature = "reference"))]
+                    {
+                        // credits for the original idea: @zakarumych (had to be fixed though)
+                        buf = buf.write_one(if run == 1 && index_allowed {
+                            QOI_OP_INDEX | hash_prev
+                        } else {
+                            QOI_OP_RUN | (run - 1)
+                        })?;
+                    }
+                    #[cfg(feature = "reference")]
+                    {
+                        buf = buf.write_one(QOI_OP_RUN | (run - 1))?;
+                    }
+                    run = 0;
+                }
+                index_allowed = true;
+                let px_rgba = px.as_rgba(0xff);
+                hash_prev = px_rgba.hash_index();
+                let index_px = &mut index[hash_prev as usize];
+                if *index_px == px_rgba {
+                    buf = buf.write_one(QOI_OP_INDEX | hash_prev)?;
+                } else {
+                    *index_px = px_rgba;
+                    buf = px.encode_into(px_prev, buf)?;
+                }
+                px_prev = px;
             }
-            px_prev = px;
+            i += 1;
         }
     }
 
+    assert_eq!(i, n_pixels);
     buf = buf.write_many(&QOI_PADDING)?;
     Ok(cap.saturating_sub(buf.capacity()))
-}
-
-#[inline]
-fn encode_impl_all<W: Writer>(out: W, data: &[u8], channels: Channels) -> Result<usize> {
-    match channels {
-        Channels::Rgb => encode_impl::<_, 3>(out, data),
-        Channels::Rgba => encode_impl::<_, 4>(out, data),
-    }
 }
 
 /// The maximum number of bytes the encoded image will take.
@@ -116,11 +117,14 @@ pub fn encode_to_vec(data: impl AsRef<[u8]>, width: u32, height: u32) -> Result<
 /// Encode QOI images into buffers or into streams.
 pub struct Encoder<'a> {
     data: &'a [u8],
+    stride: usize,
+    raw_channels: RawChannels,
     header: Header,
 }
 
 impl<'a> Encoder<'a> {
     /// Creates a new encoder from a given array of pixel data and image dimensions.
+    /// The data must be in RGB(A) order, without fill borders (extra stride).
     ///
     /// The number of channels will be inferred automatically (the valid values
     /// are 3 or 4). The color space will be set to sRGB by default.
@@ -136,7 +140,32 @@ impl<'a> Encoder<'a> {
             return Err(Error::InvalidImageLength { size, width, height });
         }
         header.channels = Channels::try_from(n_channels.min(0xff) as u8)?;
-        Ok(Self { data, header })
+        let raw_channels = RawChannels::from(header.channels);
+        let stride = width as usize * raw_channels.bytes_per_pixel();
+        Ok(Self { data, stride, raw_channels, header })
+    }
+
+    /// Creates a new encoder from a given array of pixel data, image
+    /// dimensions, stride, and raw format.
+    #[inline]
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn new_raw(
+        data: &'a (impl AsRef<[u8]> + ?Sized), width: u32, height: u32, stride: usize,
+        raw_channels: RawChannels,
+    ) -> Result<Self> {
+        let data = data.as_ref();
+        let channels = raw_channels.into();
+        let header = Header::try_new(width, height, channels, ColorSpace::default())?;
+
+        if stride < width as usize * raw_channels.bytes_per_pixel() {
+            return Err(Error::InvalidStride { stride });
+        }
+        let size = data.len();
+        if stride * (height - 1) as usize + width as usize * raw_channels.bytes_per_pixel() < size {
+            return Err(Error::InvalidImageLength { size, width, height });
+        }
+
+        Ok(Self { data, stride, raw_channels, header })
     }
 
     /// Returns a new encoder with modified color space.
@@ -181,7 +210,7 @@ impl<'a> Encoder<'a> {
         }
         let (head, tail) = buf.split_at_mut(QOI_HEADER_SIZE); // can't panic
         head.copy_from_slice(&self.header.encode());
-        let n_written = encode_impl_all(BytesMut::new(tail), self.data, self.header.channels)?;
+        let n_written = self.encode_impl_all(BytesMut::new(tail))?;
         Ok(QOI_HEADER_SIZE + n_written)
     }
 
@@ -203,8 +232,62 @@ impl<'a> Encoder<'a> {
     #[inline]
     pub fn encode_to_stream<W: Write>(&self, writer: &mut W) -> Result<usize> {
         writer.write_all(&self.header.encode())?;
-        let n_written =
-            encode_impl_all(GenericWriter::new(writer), self.data, self.header.channels)?;
+        let n_written = self.encode_impl_all(GenericWriter::new(writer))?;
         Ok(n_written + QOI_HEADER_SIZE)
+    }
+
+    #[inline]
+    fn encode_impl_all<W: Writer>(&self, out: W) -> Result<usize> {
+        let width = self.header.width as usize;
+        let height = self.header.height as usize;
+        let stride = self.stride;
+        match self.raw_channels {
+            RawChannels::Rgb => {
+                encode_impl::<_, 3, 3>(out, self.data, width, height, stride, |px, c| px.read(c))
+            }
+            RawChannels::Bgr => {
+                encode_impl::<_, 3, 3>(out, self.data, width, height, stride, |px, c| {
+                    px.update_rgb(c[2], c[1], c[0]);
+                })
+            }
+            RawChannels::Rgba => {
+                encode_impl::<_, 4, 4>(out, self.data, width, height, stride, |px, c| px.read(c))
+            }
+            RawChannels::Argb => {
+                encode_impl::<_, 4, 4>(out, self.data, width, height, stride, |px, c| {
+                    px.update_rgba(c[1], c[2], c[3], c[0])
+                })
+            }
+            RawChannels::Rgbx => {
+                encode_impl::<_, 3, 4>(out, self.data, width, height, stride, |px, c| {
+                    px.read(&c[..3])
+                })
+            }
+            RawChannels::Xrgb => {
+                encode_impl::<_, 3, 4>(out, self.data, width, height, stride, |px, c| {
+                    px.update_rgb(c[1], c[2], c[3])
+                })
+            }
+            RawChannels::Bgra => {
+                encode_impl::<_, 4, 4>(out, self.data, width, height, stride, |px, c| {
+                    px.update_rgba(c[2], c[1], c[0], c[3])
+                })
+            }
+            RawChannels::Abgr => {
+                encode_impl::<_, 4, 4>(out, self.data, width, height, stride, |px, c| {
+                    px.update_rgba(c[3], c[2], c[1], c[0])
+                })
+            }
+            RawChannels::Bgrx => {
+                encode_impl::<_, 3, 4>(out, self.data, width, height, stride, |px, c| {
+                    px.update_rgb(c[2], c[1], c[0])
+                })
+            }
+            RawChannels::Xbgr => {
+                encode_impl::<_, 4, 4>(out, self.data, width, height, stride, |px, c| {
+                    px.update_rgb(c[3], c[2], c[1])
+                })
+            }
+        }
     }
 }
