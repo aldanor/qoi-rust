@@ -67,7 +67,7 @@ impl Header {
 
     /// Serializes the header into a bytes array.
     #[inline]
-    pub(crate) fn encode(&self) -> [u8; QOI_HEADER_SIZE] {
+    pub fn encode(&self) -> [u8; QOI_HEADER_SIZE] {
         let mut out = [0; QOI_HEADER_SIZE];
         out[..4].copy_from_slice(&QOI_MAGIC.to_be_bytes());
         out[4..8].copy_from_slice(&self.width.to_be_bytes());
@@ -79,7 +79,7 @@ impl Header {
 
     /// Deserializes the header from a byte array.
     #[inline]
-    pub(crate) fn decode(data: impl AsRef<[u8]>) -> Result<Self> {
+    pub fn decode(data: impl AsRef<[u8]>) -> Result<Self> {
         let data = data.as_ref();
         if unlikely(data.len() < QOI_HEADER_SIZE) {
             return Err(Error::UnexpectedBufferEnd);
