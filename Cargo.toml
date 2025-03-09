@@ -33,8 +33,9 @@ anyhow = "1.0"
 png = "0.17"
 walkdir = "2.3"
 cfg-if = "1.0"
-rand = "0.8"
 libqoi = { path = "libqoi"}
+rand = "0.9"
+rand_distr = "0.5"
 
 [lib]
 name = "qoi"
