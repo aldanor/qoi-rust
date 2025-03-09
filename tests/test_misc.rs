@@ -21,3 +21,10 @@ fn test_start_with_qoi_op_run() -> Result<()> {
     assert_eq!(decoded, vec![0, 0, 0, 255, 0, 0, 0, 255, 10, 20, 30, 255]);
     Ok(())
 }
+
+#[cfg(target_endian = "big")]
+#[test]
+fn test_big_endian() {
+    // so we can see it in the CI logs
+    assert_eq!(u16::to_be_bytes(1), [0, 1]);
+}
