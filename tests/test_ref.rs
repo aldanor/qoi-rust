@@ -1,11 +1,10 @@
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Result};
 use cfg_if::cfg_if;
 use walkdir::{DirEntry, WalkDir};
 
-use qoi::{decode_to_vec, encode_to_vec};
+use qoi::{decode_to_vec, encode_to_vec, Result};
 
 fn find_qoi_png_pairs(root: impl AsRef<Path>) -> Vec<(PathBuf, PathBuf)> {
     let root = root.as_ref();
@@ -29,7 +28,7 @@ fn find_qoi_png_pairs(root: impl AsRef<Path>) -> Vec<(PathBuf, PathBuf)> {
             WalkDir::new(root)
                 .follow_links(true)
                 .into_iter()
-                .filter_map(Result::ok)
+                .filter_map(std::result::Result::ok)
                 .map(DirEntry::into_path)
                 .filter_map(|p| check_qoi_png_pair(&p)),
         )
@@ -45,18 +44,18 @@ struct Image {
 }
 
 impl Image {
-    fn from_png(filename: &Path) -> Result<Self> {
-        let decoder = png::Decoder::new(File::open(filename)?);
-        let mut reader = decoder.read_info()?;
+    fn from_png(filename: &Path) -> Self {
+        let decoder = png::Decoder::new(File::open(filename).unwrap());
+        let mut reader = decoder.read_info().unwrap();
         let mut buf = vec![0; reader.output_buffer_size()];
-        let info = reader.next_frame(&mut buf)?;
+        let info = reader.next_frame(&mut buf).unwrap();
         let bytes = &buf[..info.buffer_size()];
-        Ok(Self {
+        Self {
             width: info.width,
             height: info.height,
             channels: info.color_type.samples() as u8,
             data: bytes.to_vec(),
-        })
+        }
     }
 }
 
@@ -67,7 +66,7 @@ fn compare_slices(name: &str, desc: &str, result: &[u8], expected: &[u8]) -> Res
         if let Some(i) =
             (0..result.len().min(expected.len())).position(|i| result[i] != expected[i])
         {
-            bail!(
+            panic!(
                 "{}: {} mismatch at byte {}: expected {:?}, got {:?}",
                 name,
                 desc,
@@ -76,7 +75,7 @@ fn compare_slices(name: &str, desc: &str, result: &[u8], expected: &[u8]) -> Res
                 &result[i..(i + 4).min(result.len())],
             );
         } else {
-            bail!(
+            panic!(
                 "{}: {} length mismatch: expected {}, got {}",
                 name,
                 desc,
@@ -94,10 +93,10 @@ fn test_reference_images() -> Result<()> {
 
     for (qoi_path, png_path) in &pairs {
         let png_name = png_path.file_name().unwrap_or_default().to_string_lossy();
-        let img = Image::from_png(png_path)?;
+        let img = Image::from_png(png_path);
         println!("{} {} {} {}", png_name, img.width, img.height, img.channels);
         let encoded = encode_to_vec(&img.data, img.width, img.height)?;
-        let expected = fs::read(qoi_path)?;
+        let expected = fs::read(qoi_path).unwrap();
         assert_eq!(encoded.len(), expected.len()); // this should match regardless
         cfg_if! {
             if #[cfg(feature = "reference")] {
