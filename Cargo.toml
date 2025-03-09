@@ -11,16 +11,17 @@ homepage = "https://github.com/aldanor/qoi-rust"
 documentation = "https://docs.rs/qoi"
 categories = ["multimedia::images", "multimedia::encoding"]
 keywords = ["qoi", "graphics", "image", "encoding"]
-exclude = [
-    "assets/*",
-]
+exclude = ["assets/*"]
 rust-version = "1.62.0"
 
 [features]
 default = ["std"]
-alloc = []      # provides access to `Vec` without enabling `std` mode
-std = []        # std mode (enabled by default) - provides access to `std::io`, `Error` and `Vec`
-reference = []  # follows reference encoder implementation precisely, but may be slightly slower
+# provides access to `Vec` without enabling `std` mode
+alloc = []
+# std mode (enabled by default) - provides access to `std::io`, `Error` and `Vec`
+std = []
+# follows reference encoder implementation precisely, but may be slower
+reference = []
 
 [dependencies]
 bytemuck = "1.12"
@@ -29,13 +30,15 @@ bytemuck = "1.12"
 members = ["libqoi", "bench"]
 
 [dev-dependencies]
+# external
 anyhow = "1.0"
-png = "0.17"
 walkdir = "2.3"
 cfg-if = "1.0"
-libqoi = { path = "libqoi"}
+png = "0.17"
 rand = "0.9"
 rand_distr = "0.5"
+# internal
+libqoi = { path = "libqoi" }
 
 [lib]
 name = "qoi"
