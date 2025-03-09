@@ -124,12 +124,12 @@ impl<const N: usize> Pixel<N> {
     {
         // credits for the initial idea: @zakarumych
         let v = if N == 4 {
-            u32::from_ne_bytes(cast(self.0))
+            u32::from_le_bytes(cast(self.0))
         } else {
-            u32::from_ne_bytes([self.0[0], self.0[1], self.0[2], 0xff])
+            u32::from_le_bytes([self.0[0], self.0[1], self.0[2], 0xff])
         } as u64;
         let s = ((v & 0xff00_ff00) << 32) | (v & 0x00ff_00ff);
-        s.wrapping_mul(0x0300_0700_0005_000b_u64).to_le().swap_bytes() as u8 & 63
+        (s.wrapping_mul(0x0300_0700_0005_000b_u64) >> 56) as u8 & 63
     }
 
     #[inline]
