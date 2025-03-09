@@ -24,7 +24,7 @@ std = []
 reference = []
 
 [dependencies]
-bytemuck = "1.12"
+bytemuck = "1.22"
 
 [workspace]
 members = ["libqoi", "bench"]
@@ -32,11 +32,11 @@ members = ["libqoi", "bench"]
 [dev-dependencies]
 # external
 anyhow = "1.0"
-walkdir = "2.3"
 cfg-if = "1.0"
 png = "0.17"
 rand = "0.9"
 rand_distr = "0.5"
+walkdir = "2.5"
 # internal
 libqoi = { path = "libqoi" }
 
