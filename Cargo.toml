@@ -12,7 +12,7 @@ documentation = "https://docs.rs/qoi"
 categories = ["multimedia::images", "multimedia::encoding"]
 keywords = ["qoi", "graphics", "image", "encoding"]
 exclude = ["assets/*"]
-rust-version = "1.62.0"
+rust-version = "1.67.0"
 
 [features]
 default = ["std"]
