@@ -152,11 +152,11 @@ impl<const N: usize> Pixel<N> {
                 let (vr_2, vg_2, vb_2) =
                     (vr.wrapping_add(2), vg.wrapping_add(2), vb.wrapping_add(2));
                 if vr_2 | vg_2 | vb_2 | 3 == 3 {
-                    buf.write_one(QOI_OP_DIFF | vr_2 << 4 | vg_2 << 2 | vb_2)
+                    buf.write_one(QOI_OP_DIFF | (vr_2 << 4) | (vg_2 << 2) | vb_2)
                 } else {
                     let (vg_r_8, vg_b_8) = (vg_r.wrapping_add(8), vg_b.wrapping_add(8));
                     if vg_r_8 | vg_b_8 | 15 == 15 {
-                        buf.write_many(&[QOI_OP_LUMA | vg_32, vg_r_8 << 4 | vg_b_8])
+                        buf.write_many(&[QOI_OP_LUMA | vg_32, (vg_r_8 << 4) | vg_b_8])
                     } else {
                         buf.write_many(&[QOI_OP_RGB, self.r(), self.g(), self.b()])
                     }
@@ -167,6 +167,12 @@ impl<const N: usize> Pixel<N> {
         } else {
             buf.write_many(&[QOI_OP_RGBA, self.r(), self.g(), self.b(), self.a_or(0xff)])
         }
+    }
+}
+
+impl<const N: usize> Default for Pixel<N> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

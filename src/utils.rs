@@ -59,7 +59,7 @@ impl<'a> BytesMut<'a> {
     }
 }
 
-impl<'a> Writer for BytesMut<'a> {
+impl Writer for BytesMut<'_> {
     #[inline]
     fn write_one(self, v: u8) -> Result<Self> {
         Ok(BytesMut::write_one(self, v))
