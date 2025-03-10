@@ -244,7 +244,7 @@ impl<'a> Bytes<'a> {
     }
 }
 
-impl<'a> Reader for Bytes<'a> {
+impl Reader for Bytes<'_> {
     #[inline]
     fn decode_header(&mut self) -> Result<Header> {
         let header = Header::decode(self.0)?;

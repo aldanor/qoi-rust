@@ -124,12 +124,12 @@ impl<const N: usize> Pixel<N> {
     {
         // credits for the initial idea: @zakarumych
         let v = if N == 4 {
-            u32::from_ne_bytes(cast(self.0))
+            u32::from_le_bytes(cast(self.0))
         } else {
-            u32::from_ne_bytes([self.0[0], self.0[1], self.0[2], 0xff])
+            u32::from_le_bytes([self.0[0], self.0[1], self.0[2], 0xff])
         } as u64;
         let s = ((v & 0xff00_ff00) << 32) | (v & 0x00ff_00ff);
-        s.wrapping_mul(0x0300_0700_0005_000b_u64).to_le().swap_bytes() as u8 & 63
+        (s.wrapping_mul(0x0300_0700_0005_000b_u64) >> 56) as u8 & 63
     }
 
     #[inline]
@@ -152,11 +152,11 @@ impl<const N: usize> Pixel<N> {
                 let (vr_2, vg_2, vb_2) =
                     (vr.wrapping_add(2), vg.wrapping_add(2), vb.wrapping_add(2));
                 if vr_2 | vg_2 | vb_2 | 3 == 3 {
-                    buf.write_one(QOI_OP_DIFF | vr_2 << 4 | vg_2 << 2 | vb_2)
+                    buf.write_one(QOI_OP_DIFF | (vr_2 << 4) | (vg_2 << 2) | vb_2)
                 } else {
                     let (vg_r_8, vg_b_8) = (vg_r.wrapping_add(8), vg_b.wrapping_add(8));
                     if vg_r_8 | vg_b_8 | 15 == 15 {
-                        buf.write_many(&[QOI_OP_LUMA | vg_32, vg_r_8 << 4 | vg_b_8])
+                        buf.write_many(&[QOI_OP_LUMA | vg_32, (vg_r_8 << 4) | vg_b_8])
                     } else {
                         buf.write_many(&[QOI_OP_RGB, self.r(), self.g(), self.b()])
                     }
@@ -167,6 +167,12 @@ impl<const N: usize> Pixel<N> {
         } else {
             buf.write_many(&[QOI_OP_RGBA, self.r(), self.g(), self.b(), self.a_or(0xff)])
         }
+    }
+}
+
+impl<const N: usize> Default for Pixel<N> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

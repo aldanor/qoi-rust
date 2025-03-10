@@ -63,7 +63,7 @@
     clippy::module_name_repetitions,
     clippy::cargo_common_metadata,
     clippy::doc_markdown,
-    clippy::return_self_not_must_use,
+    clippy::return_self_not_must_use
 )]
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 #[cfg(all(feature = "alloc", not(any(feature = "std", test))))]

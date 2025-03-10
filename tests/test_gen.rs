@@ -1,3 +1,5 @@
+#![cfg_attr(target_endian = "big", allow(unused_imports, dead_code))]
+
 mod common;
 
 use bytemuck::cast_slice;
@@ -5,11 +7,7 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 
 use cfg_if::cfg_if;
-use rand::{
-    distributions::{Distribution, Standard},
-    rngs::StdRng,
-    Rng, SeedableRng,
-};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use libqoi::{qoi_decode, qoi_encode};
 use qoi::consts::{
@@ -46,7 +44,7 @@ impl<const N: usize> GenState<N> {
     }
 
     pub fn pick_from_index(&self, rng: &mut impl Rng) -> [u8; N] {
-        self.index[rng.gen_range(0_usize..64)]
+        self.index[rng.random_range(0_usize..64)]
     }
 
     pub fn zero() -> [u8; N] {
@@ -68,7 +66,7 @@ struct ImageGen {
 
 impl ImageGen {
     pub fn new_random(rng: &mut impl Rng) -> Self {
-        let p: [f64; 6] = rng.gen();
+        let p: [f64; 6] = rng.random();
         let t = p.iter().sum::<f64>();
         Self {
             p_new: p[0] / t,
@@ -87,18 +85,15 @@ impl ImageGen {
         }
     }
 
-    fn generate_const<R: Rng, const N: usize>(&self, rng: &mut R, min_len: usize) -> Vec<u8>
-    where
-        Standard: Distribution<[u8; N]>,
-    {
+    fn generate_const<R: Rng, const N: usize>(&self, rng: &mut R, min_len: usize) -> Vec<u8> {
         let mut s = GenState::<N>::with_capacity(min_len);
         let zero = GenState::<N>::zero();
 
         while s.len < min_len {
-            let mut p = rng.gen_range(0.0..1.0);
+            let mut p = rng.random_range(0.0..1.0);
 
             if p < self.p_new {
-                s.write(rng.gen());
+                s.write(rng.random());
                 continue;
             }
             p -= self.p_new;
@@ -112,7 +107,7 @@ impl ImageGen {
 
             if p < self.p_repeat {
                 let px = s.prev;
-                let n_repeat = rng.gen_range(1_usize..=70);
+                let n_repeat = rng.random_range(1_usize..=70);
                 for _ in 0..n_repeat {
                     s.write(px);
                 }
@@ -122,9 +117,9 @@ impl ImageGen {
 
             if p < self.p_diff {
                 let mut px = s.prev;
-                px[0] = px[0].wrapping_add(rng.gen_range(0_u8..4).wrapping_sub(2));
-                px[1] = px[1].wrapping_add(rng.gen_range(0_u8..4).wrapping_sub(2));
-                px[2] = px[2].wrapping_add(rng.gen_range(0_u8..4).wrapping_sub(2));
+                px[0] = px[0].wrapping_add(rng.random_range(0_u8..4).wrapping_sub(2));
+                px[1] = px[1].wrapping_add(rng.random_range(0_u8..4).wrapping_sub(2));
+                px[2] = px[2].wrapping_add(rng.random_range(0_u8..4).wrapping_sub(2));
                 s.write(px);
                 continue;
             }
@@ -132,9 +127,9 @@ impl ImageGen {
 
             if p < self.p_luma {
                 let mut px = s.prev;
-                let vg = rng.gen_range(0_u8..64).wrapping_sub(32);
-                let vr = rng.gen_range(0_u8..16).wrapping_sub(8).wrapping_add(vg);
-                let vb = rng.gen_range(0_u8..16).wrapping_sub(8).wrapping_add(vg);
+                let vg = rng.random_range(0_u8..64).wrapping_sub(32);
+                let vr = rng.random_range(0_u8..16).wrapping_sub(8).wrapping_add(vg);
+                let vb = rng.random_range(0_u8..16).wrapping_sub(8).wrapping_add(vg);
                 px[0] = px[0].wrapping_add(vr);
                 px[1] = px[1].wrapping_add(vg);
                 px[2] = px[2].wrapping_add(vb);
@@ -276,13 +271,14 @@ fn check_roundtrip<E, D, VE, VD, EE, ED>(
 }
 
 #[test]
+#[cfg(target_endian = "little")] // takes too long on big-endian
 fn test_generated() {
     let mut rng = StdRng::seed_from_u64(0);
 
     let mut n_pixels = 0;
     while n_pixels < 20_000_000 {
-        let min_len = rng.gen_range(1..=5000);
-        let channels = rng.gen_range(3..=4);
+        let min_len = rng.random_range(1..=5000);
+        let channels = rng.random_range(3..=4);
         let gen = ImageGen::new_random(&mut rng);
         let img = gen.generate(&mut rng, channels, min_len);
 

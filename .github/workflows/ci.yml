@@ -6,32 +6,77 @@ on:
 name: CI
 env:
   CARGO_TERM_COLOR: always
-  HOST: x86_64-unknown-linux-gnu
   RUSTFLAGS: "-D warnings"
 jobs:
   tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [stable, beta, nightly, 1.62.0]  # MSRV=1.62
+        rust: [stable, beta, nightly, 1.67.0]
     steps:
       - uses: actions/checkout@v2
-        with: {submodules: true}
+        with: { submodules: true }
       - uses: actions-rs/toolchain@v1
-        with: {profile: minimal, toolchain: '${{ matrix.rust }}', override: true}
+        with:
+          { profile: minimal, toolchain: "${{ matrix.rust }}", override: true }
       - run: cargo test
+  tests-s390x:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features: [default, reference]
+    steps:
+      - uses: actions/checkout@v2
+        with: { submodules: true }
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          target: s390x-unknown-linux-gnu
+          components: rust-src
+      - run: sudo apt-get update && sudo apt-get install -y qemu-user-static gcc-s390x-linux-gnu
+      - run: |
+          if [ "${{ matrix.features }}" = "reference" ]; then
+            echo "FEATURES=alloc,reference" >> $GITHUB_ENV
+          else
+            echo "FEATURES=alloc" >> $GITHUB_ENV
+          fi
+      - run: |
+          cargo build \
+            --target s390x-unknown-linux-gnu \
+            --tests \
+            -Zbuild-std \
+            --no-default-features \
+            --features=${FEATURES}
+        env:
+          CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER: "s390x-linux-gnu-gcc"
+          RUSTFLAGS: "-D warnings -C target-feature=+crt-static"
+      - run: |
+          failed=0
+          for test in ./target/s390x-unknown-linux-gnu/debug/deps/*-[0-9a-f][0-9a-f]*; do
+            if [ -x "$test" ]; then
+              echo "Running $test"
+              qemu-s390x-static "$test" || failed=1
+            fi
+          done
+          exit $failed
   reference:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with: {submodules: true}
+        with: { submodules: true }
       - uses: actions-rs/toolchain@v1
-        with: {profile: minimal, toolchain: stable, override: true}
+        with: { profile: minimal, toolchain: stable, override: true }
       - run: cargo test --features=reference
   clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
-        with: {profile: minimal, toolchain: beta, override: true, components: clippy}
+        with:
+          profile: minimal
+          toolchain: beta
+          override: true
+          components: clippy
       - run: cargo clippy
