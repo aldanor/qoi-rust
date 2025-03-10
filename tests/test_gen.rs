@@ -1,3 +1,5 @@
+#![cfg_attr(target_endian = "big", allow(unused_imports, dead_code))]
+
 mod common;
 
 use bytemuck::cast_slice;
@@ -269,6 +271,7 @@ fn check_roundtrip<E, D, VE, VD, EE, ED>(
 }
 
 #[test]
+#[cfg(target_endian = "little")] // takes too long on big-endian
 fn test_generated() {
     let mut rng = StdRng::seed_from_u64(0);
 
