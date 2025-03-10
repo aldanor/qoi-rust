@@ -33,9 +33,6 @@ reference = []
 [dependencies]
 bytemuck = "1.22"
 
-[workspace]
-members = ["libqoi", "bench"]
-
 [dev-dependencies]
 # external
 anyhow = "1.0"
