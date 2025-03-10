@@ -11,7 +11,14 @@ homepage = "https://github.com/aldanor/qoi-rust"
 documentation = "https://docs.rs/qoi"
 categories = ["multimedia::images", "multimedia::encoding"]
 keywords = ["qoi", "graphics", "image", "encoding"]
-exclude = ["assets/*"]
+exclude = [
+    "assets",
+    "doc",
+    "ext",
+    ".github",
+    "tests/test_gen.rs",
+    "tests/test_ref.rs",
+]
 rust-version = "1.67.0"
 
 [features]
@@ -25,9 +32,6 @@ reference = []
 
 [dependencies]
 bytemuck = "1.22"
-
-[workspace]
-members = ["libqoi", "bench"]
 
 [dev-dependencies]
 # external
