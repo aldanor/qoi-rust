@@ -92,4 +92,4 @@ pub use crate::encode::{encode_max_len, encode_to_buf, Encoder};
 
 pub use crate::error::{Error, Result};
 pub use crate::header::Header;
-pub use crate::types::{Channels, ColorSpace};
+pub use crate::types::{Channels, ColorSpace, RawChannels};
