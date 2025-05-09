@@ -16,12 +16,11 @@ use crate::utils::GenericWriter;
 use crate::utils::{unlikely, BytesMut, Writer};
 
 #[allow(clippy::cast_possible_truncation, unused_assignments, unused_variables)]
-fn encode_impl<W: Writer, const N: usize, const N_SOURCE: usize>(
-    mut buf: W, data: &[u8],
+fn encode_impl<W: Writer, const N: usize>(
+    mut buf: W, data: &[u8], source_channels: Channels
 ) -> Result<usize>
 where
     Pixel<N>: SupportedChannels,
-    Pixel<N_SOURCE>: SupportedChannels,
     [u8; N]: Pod,
 {
     let cap = buf.capacity();
@@ -33,9 +32,9 @@ where
     let mut px = Pixel::<N>::new().with_a(0xff);
     let mut index_allowed = false;
 
-    let n_pixels = data.len() / N_SOURCE;
+    let n_pixels = data.len() / usize::from(source_channels.as_u8());
 
-    for (i, chunk) in data.chunks_exact(N_SOURCE).enumerate() {
+    for (i, chunk) in data.chunks_exact(usize::from(source_channels.as_u8())).enumerate() {
         px.read(chunk);
         if px == px_prev {
             run += 1;
@@ -83,14 +82,8 @@ fn encode_impl_all<W: Writer>(
     out: W, data: &[u8], channels: Channels, source_channels: Channels,
 ) -> Result<usize> {
     match channels {
-        Channels::Rgb => match source_channels {
-            Channels::Rgb => encode_impl::<_, 3, 3>(out, data),
-            Channels::Rgba => encode_impl::<_, 3, 4>(out, data),
-        },
-        Channels::Rgba => match source_channels {
-            Channels::Rgb => encode_impl::<_, 4, 3>(out, data),
-            Channels::Rgba => encode_impl::<_, 4, 4>(out, data),
-        },
+        Channels::Rgb => encode_impl::<_, 3>(out, data, source_channels),
+        Channels::Rgba => encode_impl::<_, 4>(out, data, source_channels),
     }
 }
 
