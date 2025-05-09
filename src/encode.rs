@@ -193,7 +193,7 @@ impl<'a> Encoder<'a> {
         let (head, tail) = buf.split_at_mut(QOI_HEADER_SIZE); // can't panic
         head.copy_from_slice(&self.header.encode());
         let n_written =
-            encode_impl_all(BytesMut::new(tail), self.data.0, self.data.1, self.header.channels)?;
+            encode_impl_all(BytesMut::new(tail), self.data.0, self.header.channels, self.data.1)?;
         Ok(QOI_HEADER_SIZE + n_written)
     }
 
