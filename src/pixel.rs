@@ -15,10 +15,12 @@ impl<const N: usize> Pixel<N> {
 
     #[inline]
     pub fn read(&mut self, s: &[u8]) {
-        match N.cmp(&s.len()) {
-            core::cmp::Ordering::Less => self.0.copy_from_slice(&s[..N]),
-            core::cmp::Ordering::Equal => self.0.copy_from_slice(s),
-            core::cmp::Ordering::Greater => self.0[..s.len()].copy_from_slice(s),
+        let len = N.min(s.len());
+
+        let mut i = 0;
+        while i < len {
+            self.0[i] = s[i];
+            i += 1;
         }
     }
 
