@@ -175,10 +175,10 @@ impl<'a> Encoder<'a> {
     /// Returns a new encoder with modified output channels.
     ///
     /// NOTE: this doesn't change how the provided data is interpreted, it changes
-    /// only how the qoi image gets encoded. This can lead to loss of information
+    /// only how the qoi image gets encoded. This can lead to loss of information.
     #[inline]
-    pub const fn with_channels(mut self, out_channels: Channels) -> Self {
-        self.header = self.header.with_channels(out_channels);
+    pub const fn with_channels(mut self, channels: Channels) -> Self {
+        self.header = self.header.with_channels(channels);
         self
     }
 
