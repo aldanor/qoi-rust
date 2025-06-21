@@ -60,6 +60,8 @@ where
                 phead.fill(px.into());
                 pixels = ptail;
                 data = dtail;
+                px_rgba = px.as_rgba(0xff);
+                index[px_rgba.hash_index() as usize] = px_rgba;
                 continue;
             }
             [b1 @ QOI_OP_DIFF..=QOI_OP_DIFF_END, dtail @ ..] => {
@@ -178,6 +180,7 @@ where
                 let (phead, ptail) = pixels.split_at_mut(run); // can't panic
                 phead.fill(px.into());
                 pixels = ptail;
+                index[px.hash_index() as usize] = px;
                 continue;
             }
             QOI_OP_DIFF..=QOI_OP_DIFF_END => {
