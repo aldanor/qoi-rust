@@ -381,7 +381,11 @@ impl<R: Reader> Decoder<R> {
         if unlikely(buf.len() < size) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
         }
-        self.reader.decode_image(buf, self.channels.as_u8(), self.header.channels.as_u8())?;
+        self.reader.decode_image(
+            &mut buf[..size],
+            self.channels.as_u8(),
+            self.header.channels.as_u8(),
+        )?;
         Ok(size)
     }
 

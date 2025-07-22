@@ -1,7 +1,47 @@
+#![cfg_attr(not(feature = "std"), allow(unused_imports, dead_code))]
+
 use qoi::{
     consts::{QOI_OP_RGB, QOI_OP_RUN},
-    decode_to_vec, Channels, ColorSpace, Header, Result,
+    decode_to_vec, Channels, ColorSpace, Decoder, Header, Result,
 };
+
+const ONE_PIXEL_QOI_IMAGE: [u8; 23] = [
+    0x71, 0x6f, 0x69, 0x66, // magic
+    0x00, 0x00, 0x00, 0x01, // width
+    0x00, 0x00, 0x00, 0x01, // height
+    0x04, // number of channels
+    0x00, // colorspace
+    0x55, // QOI_OP_DIFF
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // padding
+];
+
+const ONE_PIXEL_QOI_HEADER: Header =
+    Header { width: 1, height: 1, channels: Channels::Rgba, colorspace: ColorSpace::Srgb };
+
+#[cfg(feature = "std")]
+#[test]
+fn test_decode_stream_to_exact_sized_buffer() -> Result<()> {
+    let mut decoder = Decoder::from_stream(&ONE_PIXEL_QOI_IMAGE[..])?;
+    assert_eq!(decoder.header(), &ONE_PIXEL_QOI_HEADER);
+
+    let mut out = vec![0u8; decoder.required_buf_len()];
+    let n_written = decoder.decode_to_buf(&mut out)?;
+    assert_eq!(n_written, 4);
+    Ok(())
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_decode_stream_to_larger_buffer() -> Result<()> {
+    let mut decoder = Decoder::from_stream(&ONE_PIXEL_QOI_IMAGE[..])?;
+    assert_eq!(decoder.header(), &ONE_PIXEL_QOI_HEADER);
+
+    let mut out = vec![0u8; decoder.required_buf_len() + 16];
+    let n_written = decoder.decode_to_buf(&mut out)?;
+    assert_eq!(n_written, 4);
+    assert_eq!(&out[4..], &[0_u8; 16]);
+    Ok(())
+}
 
 #[test]
 fn test_new_encoder() {
