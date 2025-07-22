@@ -405,7 +405,7 @@ struct Args {
     #[structopt(short, long)]
     average: bool,
     /// Simple totals, no fancy tables.
-    #[structopt(short, long)]
+    #[structopt(long)]
     simple: bool,
 }
 
