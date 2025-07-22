@@ -35,6 +35,11 @@ where
     let mut px = Pixel::<N>::new().with_a(0xff);
     let mut px_rgba: Pixel<4>;
 
+    if matches!(data, [QOI_OP_RUN..=QOI_OP_RUN_END, ..]) {
+        px_rgba = px.as_rgba(0xff);
+        index[px_rgba.hash_index() as usize] = px_rgba;
+    }
+
     while let [px_out, ptail @ ..] = pixels {
         pixels = ptail;
         match data {
@@ -60,8 +65,6 @@ where
                 phead.fill(px.into());
                 pixels = ptail;
                 data = dtail;
-                px_rgba = px.as_rgba(0xff);
-                index[px_rgba.hash_index() as usize] = px_rgba;
                 continue;
             }
             [b1 @ QOI_OP_DIFF..=QOI_OP_DIFF_END, dtail @ ..] => {
