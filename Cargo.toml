@@ -1,13 +1,16 @@
 [package]
-name = "qoi"
+name = "qoicoubeh"
 version = "0.4.1"
 description = "VERY fast encoder/decoder for QOI (Quite Okay Image) format"
-authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
+authors = [
+    "Ivan Smirnov <rust@ivan.smirnov.ie>",
+    "Marc-André Lureau <marcandre.lureau@redhat.com>",
+]
 edition = "2021"
 readme = "README.md"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/aldanor/qoi-rust"
-homepage = "https://github.com/aldanor/qoi-rust"
+repository = "https://github.com/elmarco/qoi-rust"
+homepage = "https://github.com/elmarco/qoi-rust"
 documentation = "https://docs.rs/qoi"
 categories = ["multimedia::images", "multimedia::encoding"]
 keywords = ["qoi", "graphics", "image", "encoding"]

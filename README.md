@@ -1,11 +1,14 @@
-# [qoi](https://crates.io/crates/qoi)
+# [qoicoubeh](https://crates.io/crates/qoicoubeh)
 
-[![Build](https://github.com/aldanor/qoi-rust/workflows/CI/badge.svg)](https://github.com/aldanor/qoi-rust/actions?query=branch%3Amaster)
-[![Latest Version](https://img.shields.io/crates/v/qoi.svg)](https://crates.io/crates/qoi)
-[![Documentation](https://img.shields.io/docsrs/qoi)](https://docs.rs/qoi)
+[![Build](https://github.com/elmarco/qoi-rust/workflows/CI/badge.svg)](https://github.com/elmarco/qoi-rust/actions?query=branch%3Amaster)
+[![Latest Version](https://img.shields.io/crates/v/qoicoubeh.svg)](https://crates.io/crates/qoicoubeh)
+[![Documentation](https://img.shields.io/docsrs/qoicoubeh)](https://docs.rs/qoicoubeh)
 [![Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance)
+
+> **⚠️ WARNING ⚠️**
+> This project is a fork of [qoi-rust](https://github.com/aldanor/qoi-rust) until the maintainer resumes activity.
 
 Fast encoder/decoder for [QOI image format](https://qoiformat.org/), implemented in pure and safe Rust.
 
@@ -34,7 +37,7 @@ assert_eq!(decoded, pixels);
 ```
              decode:Mp/s  encode:Mp/s  decode:MB/s  encode:MB/s
 qoi.h              282.9        225.3        978.3        778.9
-qoi-rust           427.4        290.0       1477.7       1002.9
+qoicoubeh          427.4        290.0       1477.7       1002.9
 ```
 
 - Reference C implementation:

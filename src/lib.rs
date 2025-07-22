@@ -25,7 +25,7 @@
 //! ```
 //!              decode:Mp/s  encode:Mp/s  decode:MB/s  encode:MB/s
 //! qoi.h              282.9        225.3        978.3        778.9
-//! qoi-rust           427.4        290.0       1477.7       1002.9
+//! qoicoubeh          427.4        290.0       1477.7       1002.9
 //! ```
 //!
 //! - Reference C implementation:

@@ -287,9 +287,9 @@ fn test_generated() {
         let encode_c = |data: &[u8], size| qoi_encode(data, size, 1, channels as _);
         let decode_c = |data: &[u8]| qoi_decode(data, channels as _).map(|r| r.1);
 
-        check_roundtrip("qoi-rust -> qoi-rust", &img, channels as _, encode, decode);
-        check_roundtrip("qoi-rust -> qoi.h", &img, channels as _, encode, decode_c);
-        check_roundtrip("qoi.h -> qoi-rust", &img, channels as _, encode_c, decode);
+        check_roundtrip("qoicoubeh -> qoicoubeh", &img, channels as _, encode, decode);
+        check_roundtrip("qoicoubeh -> qoi.h", &img, channels as _, encode, decode_c);
+        check_roundtrip("qoi.h -> qoicoubeh", &img, channels as _, encode_c, decode);
 
         let size = (img.len() / channels) as u32;
         let encoded = encode(&img, size).unwrap();
@@ -297,10 +297,10 @@ fn test_generated() {
         cfg_if! {
             if #[cfg(feature = "reference")] {
                 let eq = encoded.as_slice() == encoded_c.as_ref();
-                assert!(eq, "qoi-rust [reference mode] doesn't match qoi.h");
+                assert!(eq, "qoicoubeh [reference mode] doesn't match qoi.h");
             } else {
                 let eq = encoded.len() == encoded_c.len();
-                assert!(eq, "qoi-rust [non-reference mode] length doesn't match qoi.h");
+                assert!(eq, "qoicoubeh [non-reference mode] length doesn't match qoi.h");
             }
         }
 

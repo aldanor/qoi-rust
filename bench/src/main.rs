@@ -135,7 +135,7 @@ impl Codec for CodecQoiRust {
     type Output = Vec<u8>;
 
     fn name() -> &'static str {
-        "qoi-rust"
+        "qoicoubeh"
     }
 
     fn encode(img: &Image) -> Result<Vec<u8>> {
@@ -215,7 +215,7 @@ impl ImageBench {
         let (decoded, t_decode) = timeit(|| C::decode(encoded.as_ref(), img));
         let decoded = decoded?;
         let roundtrip = decoded.as_ref() == img.data.as_slice();
-        if C::name() == "qoi-rust" {
+        if C::name() == "qoicoubeh" {
             assert!(roundtrip, "{}: decoded data doesn't roundtrip", C::name());
         } else {
             ensure!(roundtrip, "{}: decoded data doesn't roundtrip", C::name());
