@@ -24,7 +24,7 @@ fuzz_target!(|input: (u16, u16, bool, &[u8])| {
         channels,
         0,
     ];
-    vec.extend(&*data);
+    vec.extend(data);
     vec.extend(&[0, 0, 0, 0, 0, 0, 0, 1]);
 
     let header_expected = Header {
