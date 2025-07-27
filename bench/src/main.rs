@@ -1,11 +1,13 @@
 use std::cmp::Ordering;
 use std::fs::{self, File};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, ensure, Context, Result};
 use bytemuck::cast_slice;
 use c_vec::CVec;
+use qoi::{Decoder, Encoder};
 use structopt::StructOpt;
 use walkdir::{DirEntry, WalkDir};
 
@@ -124,26 +126,45 @@ impl Image {
 trait Codec {
     type Output: AsRef<[u8]>;
 
-    fn name() -> &'static str;
-    fn encode(img: &Image) -> Result<Self::Output>;
-    fn decode(data: &[u8], img: &Image) -> Result<Self::Output>;
+    fn name(&self) -> &'static str;
+    fn encode(&self, img: &Image) -> Result<Self::Output>;
+    fn decode(&self, data: &[u8], img: &Image) -> Result<Self::Output>;
 }
 
-struct CodecQoiRust;
+struct CodecQoiRust {
+    pub stream: bool,
+}
 
 impl Codec for CodecQoiRust {
     type Output = Vec<u8>;
 
-    fn name() -> &'static str {
-        "qoi-rust"
+    fn name(&self) -> &'static str {
+        if self.stream {
+            "qoi-rust[stream]"
+        } else {
+            "qoi-rust"
+        }
     }
 
-    fn encode(img: &Image) -> Result<Vec<u8>> {
-        Ok(qoi::encode_to_vec(&img.data, img.width, img.height)?)
+    fn encode(&self, img: &Image) -> Result<Vec<u8>> {
+        if self.stream {
+            let mut stream = Vec::new();
+            let encoder = Encoder::new(&img.data, img.width, img.height)?;
+            encoder.encode_to_stream(&mut stream)?;
+            Ok(stream)
+        } else {
+            Ok(qoi::encode_to_vec(&img.data, img.width, img.height)?)
+        }
     }
 
-    fn decode(data: &[u8], _img: &Image) -> Result<Vec<u8>> {
-        Ok(qoi::decode_to_vec(data)?.1)
+    fn decode(&self, data: &[u8], _img: &Image) -> Result<Vec<u8>> {
+        if self.stream {
+            let stream = Cursor::new(data);
+            let mut decoder = Decoder::from_stream(stream)?;
+            Ok(decoder.decode_to_vec()?)
+        } else {
+            Ok(qoi::decode_to_vec(data)?.1)
+        }
     }
 }
 
@@ -152,15 +173,15 @@ struct CodecQoiC;
 impl Codec for CodecQoiC {
     type Output = CVec<u8>;
 
-    fn name() -> &'static str {
+    fn name(&self) -> &'static str {
         "qoi.h"
     }
 
-    fn encode(img: &Image) -> Result<CVec<u8>> {
+    fn encode(&self, img: &Image) -> Result<CVec<u8>> {
         libqoi::qoi_encode(&img.data, img.width, img.height, img.channels)
     }
 
-    fn decode(data: &[u8], img: &Image) -> Result<CVec<u8>> {
+    fn decode(&self, data: &[u8], img: &Image) -> Result<CVec<u8>> {
         Ok(libqoi::qoi_decode(data, img.channels)?.1)
     }
 }
@@ -209,33 +230,33 @@ impl ImageBench {
         Self { results: vec![], n_pixels: img.n_pixels(), n_bytes: img.n_bytes() }
     }
 
-    pub fn run<C: Codec>(&mut self, img: &Image, sec_allowed: f64) -> Result<()> {
-        let (encoded, t_encode) = timeit(|| C::encode(img));
+    pub fn run<C: Codec>(&mut self, codec: &C, img: &Image, sec_allowed: f64) -> Result<()> {
+        let (encoded, t_encode) = timeit(|| codec.encode(img));
         let encoded = encoded?;
-        let (decoded, t_decode) = timeit(|| C::decode(encoded.as_ref(), img));
+        let (decoded, t_decode) = timeit(|| codec.decode(encoded.as_ref(), img));
         let decoded = decoded?;
         let roundtrip = decoded.as_ref() == img.data.as_slice();
-        if C::name() == "qoi-rust" {
-            assert!(roundtrip, "{}: decoded data doesn't roundtrip", C::name());
+        if codec.name() == "qoi-rust" {
+            assert!(roundtrip, "{}: decoded data doesn't roundtrip", codec.name());
         } else {
-            ensure!(roundtrip, "{}: decoded data doesn't roundtrip", C::name());
+            ensure!(roundtrip, "{}: decoded data doesn't roundtrip", codec.name());
         }
 
         let n_encode = (sec_allowed / 2. / t_encode.as_secs_f64()).max(2.).ceil() as usize;
         let mut encode_tm = Vec::with_capacity(n_encode);
         for _ in 0..n_encode {
-            encode_tm.push(timeit(|| C::encode(img)).1);
+            encode_tm.push(timeit(|| codec.encode(img)).1);
         }
         let encode_sec = encode_tm.iter().map(Duration::as_secs_f64).collect();
 
         let n_decode = (sec_allowed / 2. / t_decode.as_secs_f64()).max(2.).ceil() as usize;
         let mut decode_tm = Vec::with_capacity(n_decode);
         for _ in 0..n_decode {
-            decode_tm.push(timeit(|| C::decode(encoded.as_ref(), img)).1);
+            decode_tm.push(timeit(|| codec.decode(encoded.as_ref(), img)).1);
         }
         let decode_sec = decode_tm.iter().map(Duration::as_secs_f64).collect();
 
-        self.results.push(BenchResult::new(C::name(), decode_sec, encode_sec));
+        self.results.push(BenchResult::new(codec.name(), decode_sec, encode_sec));
         Ok(())
     }
 
@@ -362,7 +383,7 @@ impl BenchTotals {
     }
 }
 
-fn bench_png(filename: &Path, seconds: f64, use_median: bool) -> Result<ImageBench> {
+fn bench_png(filename: &Path, seconds: f64, use_median: bool, stream: bool) -> Result<ImageBench> {
     let f = filename.to_string_lossy();
     let img = Image::read_png(filename).context(format!("error reading PNG file: {}", f))?;
     let size_png_kb = fs::metadata(filename)?.len() / 1024;
@@ -373,16 +394,18 @@ fn bench_png(filename: &Path, seconds: f64, use_median: bool) -> Result<ImageBen
         f, img.width, img.height, img.channels, size_png_kb, size_mb_raw, mpixels
     );
     let mut bench = ImageBench::new(&img);
-    bench.run::<CodecQoiC>(&img, seconds)?;
-    bench.run::<CodecQoiRust>(&img, seconds)?;
+    bench.run(&CodecQoiC, &img, seconds)?;
+    bench.run(&CodecQoiRust { stream }, &img, seconds)?;
     bench.report(use_median);
     Ok(bench)
 }
 
-fn bench_suite(files: &[PathBuf], seconds: f64, use_median: bool, fancy: bool) -> Result<()> {
+fn bench_suite(
+    files: &[PathBuf], seconds: f64, use_median: bool, fancy: bool, stream: bool,
+) -> Result<()> {
     let mut totals = BenchTotals::new();
     for file in files {
-        match bench_png(file, seconds, use_median) {
+        match bench_png(file, seconds, use_median, stream) {
             Ok(res) => totals.update(&res),
             Err(err) => eprintln!("{:?}", err),
         }
@@ -405,8 +428,11 @@ struct Args {
     #[structopt(short, long)]
     average: bool,
     /// Simple totals, no fancy tables.
-    #[structopt(short, long)]
+    #[structopt(long)]
     simple: bool,
+    /// Use stream API for qoi-rust.
+    #[structopt(long)]
+    stream: bool,
 }
 
 fn main() -> Result<()> {
@@ -414,6 +440,6 @@ fn main() -> Result<()> {
     ensure!(!args.paths.is_empty(), "no input paths given");
     let files = find_pngs(&args.paths)?;
     ensure!(!files.is_empty(), "no PNG files found in given paths");
-    bench_suite(&files, args.seconds, !args.average, !args.simple)?;
+    bench_suite(&files, args.seconds, !args.average, !args.simple, args.stream)?;
     Ok(())
 }
