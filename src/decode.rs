@@ -380,6 +380,8 @@ impl<R: Reader> Decoder<R> {
     /// Decodes the image to a pre-allocated buffer and returns the number of bytes written.
     ///
     /// The minimum size of the buffer can be found via [`Decoder::required_buf_len`].
+    /// If the buffer is bigger than the size required, the operation will succeed, writing
+    /// to the leading bytes of the buffer.
     #[inline]
     pub fn decode_to_buf(&mut self, mut buf: impl AsMut<[u8]>) -> Result<usize> {
         let buf = buf.as_mut();
@@ -387,7 +389,11 @@ impl<R: Reader> Decoder<R> {
         if unlikely(buf.len() < size) {
             return Err(Error::OutputBufferTooSmall { size: buf.len(), required: size });
         }
-        self.reader.decode_image(buf, self.channels.as_u8(), self.header.channels.as_u8())?;
+        self.reader.decode_image(
+            &mut buf[..size],
+            self.channels.as_u8(),
+            self.header.channels.as_u8(),
+        )?;
         Ok(size)
     }
 
