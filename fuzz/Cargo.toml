@@ -10,7 +10,7 @@ cargo-fuzz = true
 
 [dependencies]
 # internal
-qoi-fast = { path = ".." }
+qoi = { path = ".." }
 # external
 libfuzzer-sys = "0.4"
 
