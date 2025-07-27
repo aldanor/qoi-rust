@@ -1,5 +1,5 @@
 use qoi::{
-    consts::{QOI_OP_RGB, QOI_OP_RUN, QOI_OP_INDEX},
+    consts::{QOI_OP_INDEX, QOI_OP_RGB, QOI_OP_RUN},
     decode_to_vec, Channels, ColorSpace, Header, Result,
 };
 
@@ -17,8 +17,17 @@ fn test_start_with_qoi_op_run() -> Result<()> {
     qoi_data.extend([QOI_OP_RUN | 1, QOI_OP_RGB, 10, 20, 30]);
     qoi_data.extend([0; 7]);
     qoi_data.push(1);
-    let (_, decoded) = decode_to_vec(&qoi_data)?;
-    assert_eq!(decoded, vec![0, 0, 0, 255, 0, 0, 0, 255, 10, 20, 30, 255]);
+    let expected = vec![0, 0, 0, 255, 0, 0, 0, 255, 10, 20, 30, 255];
+
+    assert_eq!(decode_to_vec(&qoi_data)?.1, expected);
+
+    #[cfg(feature = "std")]
+    {
+        let stream = std::io::Cursor::new(&qoi_data);
+        let mut decoder = qoi::Decoder::from_stream(stream)?;
+        assert_eq!(decoder.decode_to_vec()?, expected);
+    }
+
     Ok(())
 }
 
@@ -29,8 +38,17 @@ fn test_start_with_qoi_op_run_and_use_index() -> Result<()> {
     qoi_data.extend([QOI_OP_RUN | 1, QOI_OP_RGB, 10, 20, 30, QOI_OP_INDEX | 53]);
     qoi_data.extend([0; 7]);
     qoi_data.push(1);
-    let (_, decoded) = decode_to_vec(&qoi_data)?;
-    assert_eq!(decoded, vec![0, 0, 0, 255, 0, 0, 0, 255, 10, 20, 30, 255, 0, 0, 0, 255]);
+    let expected = vec![0, 0, 0, 255, 0, 0, 0, 255, 10, 20, 30, 255, 0, 0, 0, 255];
+
+    assert_eq!(decode_to_vec(&qoi_data)?.1, expected);
+
+    #[cfg(feature = "std")]
+    {
+        let stream = std::io::Cursor::new(&qoi_data);
+        let mut decoder = qoi::Decoder::from_stream(stream)?;
+        assert_eq!(decoder.decode_to_vec()?, expected);
+    }
+
     Ok(())
 }
 
