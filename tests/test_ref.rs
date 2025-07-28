@@ -62,27 +62,25 @@ impl Image {
 fn compare_slices(name: &str, desc: &str, result: &[u8], expected: &[u8]) -> Result<()> {
     if result == expected {
         Ok(())
+    } else if let Some(i) =
+        (0..result.len().min(expected.len())).position(|i| result[i] != expected[i])
+    {
+        panic!(
+            "{}: {} mismatch at byte {}: expected {:?}, got {:?}",
+            name,
+            desc,
+            i,
+            &expected[i..(i + 4).min(expected.len())],
+            &result[i..(i + 4).min(result.len())],
+        );
     } else {
-        if let Some(i) =
-            (0..result.len().min(expected.len())).position(|i| result[i] != expected[i])
-        {
-            panic!(
-                "{}: {} mismatch at byte {}: expected {:?}, got {:?}",
-                name,
-                desc,
-                i,
-                &expected[i..(i + 4).min(expected.len())],
-                &result[i..(i + 4).min(result.len())],
-            );
-        } else {
-            panic!(
-                "{}: {} length mismatch: expected {}, got {}",
-                name,
-                desc,
-                expected.len(),
-                result.len()
-            );
-        }
+        panic!(
+            "{}: {} length mismatch: expected {}, got {}",
+            name,
+            desc,
+            expected.len(),
+            result.len()
+        );
     }
 }
 
