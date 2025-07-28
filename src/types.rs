@@ -120,22 +120,30 @@ impl TryFrom<u8> for Channels {
 pub enum SourceChannels {
     /// Pixel is R, G and B channels
     Rgb,
+    #[cfg(feature = "extra-source")]
     /// Pixel is B, G and R channels
     Bgr,
     /// Pixel is RGB with an alpha channel
     Rgba,
+    #[cfg(feature = "extra-source")]
     /// Pixel is an alpha channel and RGB
     Argb,
+    #[cfg(feature = "extra-source")]
     /// Pixel is RGB with an extra byte
     Rgbx,
+    #[cfg(feature = "extra-source")]
     /// Pixel is an extra byte and RGB
     Xrgb,
+    #[cfg(feature = "extra-source")]
     /// Pixel is BGR with an alpha channel
     Bgra,
+    #[cfg(feature = "extra-source")]
     /// Pixel is an alpha channel and BGR
     Abgr,
+    #[cfg(feature = "extra-source")]
     /// Pixel is BGR with an extra byte
     Bgrx,
+    #[cfg(feature = "extra-source")]
     /// Pixel is an extra byte and BGR
     Xbgr,
 }
@@ -152,18 +160,23 @@ impl From<Channels> for SourceChannels {
 impl SourceChannels {
     pub(crate) const fn image_channels(self) -> Channels {
         match self {
-            Self::Rgb | Self::Bgr | Self::Rgbx | Self::Xrgb | Self::Bgrx | Self::Xbgr => {
-                Channels::Rgb
-            }
-            Self::Rgba | Self::Argb | Self::Bgra | Self::Abgr => Channels::Rgba,
+            Self::Rgb => Channels::Rgb,
+            Self::Rgba => Channels::Rgba,
+            #[cfg(feature = "extra-source")]
+            Self::Bgr | Self::Rgbx | Self::Xrgb | Self::Bgrx | Self::Xbgr => Channels::Rgb,
+            #[cfg(feature = "extra-source")]
+            Self::Argb | Self::Bgra | Self::Abgr => Channels::Rgba,
         }
     }
 
     pub(crate) const fn bytes_per_pixel(self) -> usize {
         match self {
-            Self::Rgb | Self::Bgr => 3,
-            Self::Rgba
-            | Self::Argb
+            Self::Rgb => 3,
+            #[cfg(feature = "extra-source")]
+            Self::Bgr => 3,
+            Self::Rgba => 4,
+            #[cfg(feature = "extra-source")]
+            Self::Argb
             | Self::Rgbx
             | Self::Xrgb
             | Self::Bgra

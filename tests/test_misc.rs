@@ -139,6 +139,7 @@ fn test_new_encoder() -> Result<()> {
         Ok(())
     }
 
+    #[cfg(feature = "extra-source")]
     test(
         &arr3,
         2 * 3,
@@ -149,6 +150,7 @@ fn test_new_encoder() -> Result<()> {
 
     test(&arr4, 2 * 4, SourceChannels::Rgba, Channels::Rgba, &arr4)?;
 
+    #[cfg(feature = "extra-source")]
     test(
         &arr4,
         2 * 4,
@@ -157,6 +159,7 @@ fn test_new_encoder() -> Result<()> {
         &[2, 1, 0, 3, 6, 5, 4, 7, 10, 9, 8, 11, 14, 13, 12, 15],
     )?;
 
+    #[cfg(feature = "extra-source")]
     test(
         &arr4,
         2 * 4,
@@ -165,6 +168,7 @@ fn test_new_encoder() -> Result<()> {
         &[0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14],
     )?;
 
+    #[cfg(feature = "extra-source")]
     test(
         &arr4,
         2 * 4,
@@ -173,6 +177,7 @@ fn test_new_encoder() -> Result<()> {
         &[1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15],
     )?;
 
+    #[cfg(feature = "extra-source")]
     test(
         &arr4,
         2 * 4,
@@ -181,6 +186,7 @@ fn test_new_encoder() -> Result<()> {
         &[2, 1, 0, 3, 6, 5, 4, 7, 10, 9, 8, 11, 14, 13, 12, 15],
     )?;
 
+    #[cfg(feature = "extra-source")]
     test(
         &arr4,
         2 * 4,
@@ -189,6 +195,7 @@ fn test_new_encoder() -> Result<()> {
         &[3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12],
     )?;
 
+    #[cfg(feature = "extra-source")]
     test(
         &arr4,
         2 * 4,
@@ -197,6 +204,7 @@ fn test_new_encoder() -> Result<()> {
         &[2, 1, 0, 6, 5, 4, 10, 9, 8, 14, 13, 12],
     )?;
 
+    #[cfg(feature = "extra-source")]
     test(
         &arr4,
         2 * 4,

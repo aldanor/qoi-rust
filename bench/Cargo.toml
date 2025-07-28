@@ -6,6 +6,9 @@ license = "MIT/Apache-2.0"
 authors = ["Ivan Smirnov <rust@ivan.smirnov.ie>"]
 publish = false
 
+[features]
+extra-source = ["qoi/extra-source"]
+
 [dependencies]
 # internal
 libqoi = { path = "../libqoi" }

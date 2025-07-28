@@ -297,6 +297,7 @@ impl<'a> Encoder<'a> {
             SourceChannels::Rgb => {
                 encode_impl::<_, 3, 3>(out, self.data, width, height, stride, Pixel::read)
             }
+            #[cfg(feature = "extra-source")]
             SourceChannels::Bgr => {
                 encode_impl::<_, 3, 3>(out, self.data, width, height, stride, |px, c| {
                     px.update_rgb(c[2], c[1], c[0]);
@@ -305,36 +306,43 @@ impl<'a> Encoder<'a> {
             SourceChannels::Rgba => {
                 encode_impl::<_, 4, 4>(out, self.data, width, height, stride, Pixel::read)
             }
+            #[cfg(feature = "extra-source")]
             SourceChannels::Argb => {
                 encode_impl::<_, 4, 4>(out, self.data, width, height, stride, |px, c| {
                     px.update_rgba(c[1], c[2], c[3], c[0]);
                 })
             }
+            #[cfg(feature = "extra-source")]
             SourceChannels::Rgbx => {
                 encode_impl::<_, 3, 4>(out, self.data, width, height, stride, |px, c| {
                     px.read(&c[..3]);
                 })
             }
+            #[cfg(feature = "extra-source")]
             SourceChannels::Xrgb => {
                 encode_impl::<_, 3, 4>(out, self.data, width, height, stride, |px, c| {
                     px.update_rgb(c[1], c[2], c[3]);
                 })
             }
+            #[cfg(feature = "extra-source")]
             SourceChannels::Bgra => {
                 encode_impl::<_, 4, 4>(out, self.data, width, height, stride, |px, c| {
                     px.update_rgba(c[2], c[1], c[0], c[3]);
                 })
             }
+            #[cfg(feature = "extra-source")]
             SourceChannels::Abgr => {
                 encode_impl::<_, 4, 4>(out, self.data, width, height, stride, |px, c| {
                     px.update_rgba(c[3], c[2], c[1], c[0]);
                 })
             }
+            #[cfg(feature = "extra-source")]
             SourceChannels::Bgrx => {
                 encode_impl::<_, 3, 4>(out, self.data, width, height, stride, |px, c| {
                     px.update_rgb(c[2], c[1], c[0]);
                 })
             }
+            #[cfg(feature = "extra-source")]
             SourceChannels::Xbgr => {
                 encode_impl::<_, 4, 4>(out, self.data, width, height, stride, |px, c| {
                     px.update_rgb(c[3], c[2], c[1]);
