@@ -16,6 +16,8 @@ pub enum Error {
     InvalidImageDimensions { width: u32, height: u32 },
     /// Image dimensions are inconsistent with image buffer length
     InvalidImageLength { size: usize, width: u32, height: u32 },
+    /// Image stride is inconsistent with image dimension and buffer length
+    InvalidImageStride { size: usize, width: u32, height: u32, stride: usize },
     /// Output buffer is too small to fit encoded/decoded image
     OutputBufferTooSmall { size: usize, required: usize },
     /// Input buffer ended unexpectedly before decoding was finished
@@ -47,6 +49,9 @@ impl Display for Error {
             }
             Self::InvalidImageLength { size, width, height } => {
                 write!(f, "invalid image length: {size} bytes for {width}x{height}")
+            }
+            Self::InvalidImageStride { size, width, height, stride } => {
+                write!(f, "invalid image stride: {stride} for {size} bytes of {width}x{height}")
             }
             Self::OutputBufferTooSmall { size, required } => {
                 write!(f, "output buffer size too small: {size} (required: {required})")

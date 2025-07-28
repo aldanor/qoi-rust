@@ -29,6 +29,8 @@ alloc = []
 std = []
 # follows reference encoder implementation precisely, but may be slower
 reference = []
+# allow extra source formats
+extra-source = []
 
 [dependencies]
 bytemuck = "1.22"
