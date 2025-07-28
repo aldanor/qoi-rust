@@ -36,8 +36,8 @@ impl<const N: usize> GenState<N> {
     }
     pub fn write(&mut self, px: [u8; N]) {
         self.index[hash(px) as usize] = px;
-        for i in 0..N {
-            self.pixels.push(px[i]);
+        for px in px.into_iter().take(N) {
+            self.pixels.push(px);
         }
         self.prev = px;
         self.len += 1;
